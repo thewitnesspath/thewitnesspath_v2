@@ -1,0 +1,3 @@
+import Link from "next/link";
+export const metadata = { title: "Salvation" };
+export default function SalvationPage() { return <main className="container reading-page"><article className="reading-card"><span className="eyebrow">A new beginning</span><h1>There is room for you on this path.</h1><p className="intro-text">The current site has a dedicated salvation journey. This route is prepared for its approved words, scripture, and follow-up flow.</p><div className="pending-box">The ministry team’s existing salvation content should be brought over and reviewed before this page is published.</div><Link href="/guidance" className="text-link">Explore Safe Haven →</Link></article></main>; }
