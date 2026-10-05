@@ -3,15 +3,17 @@ import {
 } from "next/server";
 
 import {
-  supabaseAdmin,
-} from "@/lib/supabase/admin";
+  createClient,
+} from "@supabase/supabase-js";
 
-import {
-  validateTitle,
-} from "@/lib/validation/content";
-
-export const runtime =
-  "nodejs";
+const allowedCategories =
+  new Set([
+    "Silent Battles & Difficult Seasons",
+    "Mental & Emotional Distress",
+    "Life Hardships & Crises",
+    "Faith, Doubt & Doctrine",
+    "Relationships & Family",
+  ]);
 
 export async function POST(
   request: Request
@@ -19,18 +21,6 @@ export async function POST(
   try {
     const body =
       await request.json();
-
-    const website =
-      typeof body.website ===
-      "string"
-        ? body.website.trim()
-        : "";
-
-    if (website) {
-      return NextResponse.json({
-        success: true,
-      });
-    }
 
     const category =
       typeof body.category ===
@@ -44,23 +34,34 @@ export async function POST(
         ? body.question.trim()
         : "";
 
-    /*
-     * P0 uses the same
-     * ~100-character heading rule
-     * for Guidance questions.
-     */
-    const questionError =
-      validateTitle(
-        question
-      );
+    const website =
+      typeof body.website ===
+      "string"
+        ? body.website.trim()
+        : "";
 
-    if (questionError) {
+    /*
+     * Honeypot.
+     *
+     * Return success so bots
+     * don't learn anything.
+     */
+    if (website) {
+      return NextResponse.json({
+        message:
+          "Your question has been received.",
+      });
+    }
+
+    if (
+      !allowedCategories.has(
+        category
+      )
+    ) {
       return NextResponse.json(
         {
-          success: false,
-
           message:
-            questionError,
+            "Please select a valid area of need.",
         },
         {
           status: 400,
@@ -68,33 +69,97 @@ export async function POST(
       );
     }
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from("Questions")
-      .insert([
+    if (
+      question.length <
+      10
+    ) {
+      return NextResponse.json(
         {
-          category:
-            category ||
-            "General Guidance",
-
-          question,
+          message:
+            "Please tell us a little more about what you're carrying.",
         },
-      ])
-      .select("id")
-      .single();
+        {
+          status: 400,
+        }
+      );
+    }
 
-    if (error) {
+    if (
+      question.length >
+      3000
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Your submission is too long.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const supabaseUrl =
+      process.env
+        .NEXT_PUBLIC_SUPABASE_URL;
+
+    const serviceRoleKey =
+      process.env
+        .SUPABASE_SERVICE_ROLE_KEY;
+
+    if (
+      !supabaseUrl ||
+      !serviceRoleKey
+    ) {
       console.error(
-        "Unable to submit Safe Haven question:",
-        error.message
+        "Missing Supabase server environment variables."
       );
 
       return NextResponse.json(
         {
-          success: false,
+          message:
+            "Submission service is unavailable.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
 
+    const admin =
+      createClient(
+        supabaseUrl,
+        serviceRoleKey,
+        {
+          auth: {
+            persistSession:
+              false,
+            autoRefreshToken:
+              false,
+          },
+        }
+      );
+
+    const {
+      error,
+    } =
+      await admin
+        .from(
+          "Questions"
+        )
+        .insert({
+          category,
+          question,
+        });
+
+    if (error) {
+      console.error(
+        "Guidance question insert failed:",
+        error
+      );
+
+      return NextResponse.json(
+        {
           message:
             "Your question could not be submitted.",
         },
@@ -105,21 +170,21 @@ export async function POST(
     }
 
     return NextResponse.json({
-      success: true,
-
-      id:
-        String(data.id),
-
       message:
-        "Your question has been received safely and anonymously.",
+        "Your question has been received for review.",
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Guidance question request failed:",
+      error
+    );
+
     return NextResponse.json(
       {
-        success: false,
-
         message:
-          "Something went wrong while submitting your question.",
+          "Your question could not be submitted.",
       },
       {
         status: 500,

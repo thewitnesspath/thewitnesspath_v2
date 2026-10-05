@@ -13,217 +13,280 @@ import {
 } from "react";
 
 import type {
-  TestimonyComment,
-} from "@/lib/types/comment";
+  BlogComment,
+} from "@/lib/types/blog-comment";
 
 type Props = {
-  comment: TestimonyComment;
+  comment: BlogComment;
 };
 
-function formatDate(value?: string | null) {
-  if (!value) return "";
-
-  try {
-    return new Intl.DateTimeFormat(
-      "en",
-      {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }
-    ).format(new Date(value));
-  } catch {
-    return "";
-  }
-}
-
-export default function CommentItem({
+export default function BlogCommentItem({
   comment,
 }: Props) {
-  const [liked, setLiked] =
-    useState(false);
+  const [
+    liked,
+    setLiked,
+  ] = useState(false);
 
-  const [likes, setLikes] =
-    useState(comment.likes);
+  const [
+    likes,
+    setLikes,
+  ] = useState(
+    comment.likes ?? 0
+  );
 
-  const [replyOpen, setReplyOpen] =
-    useState(false);
+  const [
+    replyOpen,
+    setReplyOpen,
+  ] = useState(false);
 
-  const [replyAuthor, setReplyAuthor] =
-    useState("");
+  const [
+    author,
+    setAuthor,
+  ] = useState("");
 
-  const [replyContent, setReplyContent] =
-    useState("");
+  const [
+    content,
+    setContent,
+  ] = useState("");
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [
+    website,
+    setWebsite,
+  ] = useState("");
 
-  const [message, setMessage] =
-    useState("");
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
 
-  const [website, setWebsite] =
-    useState("");
+  const [
+    message,
+    setMessage,
+  ] = useState("");
+
+  const replies =
+    comment.replies ?? [];
+
+  /* =====================================================
+     LOAD LOCAL LIKE STATE
+  ===================================================== */
 
   useEffect(() => {
-    const stored =
+    setLiked(
       localStorage.getItem(
-        `twp:testimony-comment-liked:${comment.id}`
-      );
-
-    setLiked(stored === "true");
+        `liked_blog_comment_${comment.id}`
+      ) === "true"
+    );
   }, [comment.id]);
 
-  const toggleLike = async () => {
-    const nextLiked = !liked;
-    const delta = nextLiked ? 1 : -1;
+  /* =====================================================
+     LIKE COMMENT
+  ===================================================== */
 
-    const previousLiked = liked;
-    const previousLikes = likes;
+  const toggleLike =
+    async () => {
+      const nextLiked =
+        !liked;
 
-    setLiked(nextLiked);
+      const delta =
+        nextLiked ? 1 : -1;
 
-    setLikes((current) =>
-      Math.max(0, current + delta)
-    );
+      const previousLiked =
+        liked;
 
-    try {
-      const response = await fetch(
-  `/api/comments/${comment.id}/like`,
-  {
-    method: "POST",
+      const previousLikes =
+        likes;
 
-    headers: {
-      "Content-Type":
-        "application/json",
-    },
+      /*
+       * Optimistic update
+       */
+      setLiked(
+        nextLiked
+      );
 
-    body:
-      JSON.stringify({
-        delta:
-          liked
-            ? -1
-            : 1,
-      }),
-  }
-);
+      setLikes(
+        (current) =>
+          Math.max(
+            0,
+            current + delta
+          )
+      );
 
-      const result =
-        await response.json();
+      try {
+        const response =
+          await fetch(
+            `/api/blog-comments/${comment.id}/like`,
+            {
+              method:
+                "POST",
 
-      if (!response.ok) {
-        throw new Error();
-      }
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-      setLikes(result.likes);
+              body:
+                JSON.stringify({
+                  delta,
+                }),
+            }
+          );
 
-      if (nextLiked) {
-        localStorage.setItem(
-          `twp:testimony-comment-liked:${comment.id}`,
-          "true"
-        );
-      } else {
-        localStorage.removeItem(
-          `twp:testimony-comment-liked:${comment.id}`
-        );
-      }
-    } catch {
-      setLiked(previousLiked);
-      setLikes(previousLikes);
-    }
-  };
+        const result =
+          await response.json();
 
-  const submitReply = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
-
-    if (!replyContent.trim()) return;
-
-    setSubmitting(true);
-    setMessage("");
-
-    try {
-      const response = await fetch(
-        `/api/comments/${comment.id}/replies`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            author: replyAuthor,
-            content: replyContent,
-            website,
-          }),
+        if (
+          !response.ok
+        ) {
+          throw new Error();
         }
-      );
 
-      const result =
-        await response.json();
+        setLikes(
+          result.likes
+        );
 
-      if (!response.ok) {
-        throw new Error(
-          result.message ||
-            "Unable to submit reply."
+        if (
+          nextLiked
+        ) {
+          localStorage.setItem(
+            `liked_blog_comment_${comment.id}`,
+            "true"
+          );
+        } else {
+          localStorage.removeItem(
+            `liked_blog_comment_${comment.id}`
+          );
+        }
+      } catch {
+        /*
+         * Restore previous state
+         * if request fails.
+         */
+        setLiked(
+          previousLiked
+        );
+
+        setLikes(
+          previousLikes
         );
       }
+    };
 
-      setReplyAuthor("");
-      setReplyContent("");
-      setWebsite("");
+  /* =====================================================
+     SUBMIT REPLY
+  ===================================================== */
 
-      setMessage(
-        "Reply received and awaiting review."
+  const submitReply =
+    async (
+      event: FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
+
+      if (
+        !content.trim()
+      ) {
+        return;
+      }
+
+      setSubmitting(
+        true
       );
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to submit reply."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
+      setMessage("");
+
+      try {
+        const response =
+          await fetch(
+            `/api/blog-comments/${comment.id}/replies`,
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  author,
+                  content,
+                  website,
+                }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.message
+          );
+        }
+
+        setAuthor("");
+        setContent("");
+        setWebsite("");
+
+        setMessage(
+          "Reply received and awaiting review."
+        );
+      } catch {
+        setMessage(
+          "Your reply could not be submitted."
+        );
+      } finally {
+        setSubmitting(
+          false
+        );
+      }
+    };
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/70">
-      {/* COMMENT HEADER */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold text-slate-900 dark:text-white">
-            {comment.author}
-          </p>
+    <article className="rounded-[16px] border border-[#07162E]/10 bg-[#FFFDF8] p-4 transition sm:p-5 dark:border-white/10 dark:bg-[#06111F]">
+      {/* =================================================
+          COMMENT HEADER
+      ================================================= */}
 
-          {comment.createdAt && (
-            <p className="mt-1 text-[10px] text-slate-400">
-              {formatDate(
-                comment.createdAt
-              )}
-            </p>
-          )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <span className="block truncate text-[11px] font-extrabold text-[#07162E] dark:text-white">
+            {comment.author ||
+              "Anonymous"}
+          </span>
+
+          <span className="mt-1 block text-[8px] font-bold uppercase tracking-[0.15em] text-slate-400 dark:text-slate-600">
+            Community response
+          </span>
         </div>
 
-        {/* P0 COMMENT LIKE + COUNTER */}
+        {/* LIKE */}
+
         <button
           type="button"
-          onClick={toggleLike}
-          className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-bold transition ${
-            liked
-              ? "border-red-200 bg-red-50 text-red-500 dark:border-red-900/40 dark:bg-red-950/30"
-              : "border-slate-200 bg-white text-slate-500 hover:text-red-500 dark:border-slate-700 dark:bg-slate-900"
-          }`}
+          onClick={
+            toggleLike
+          }
           aria-label={
             liked
               ? "Unlike comment"
               : "Like comment"
           }
+          aria-pressed={
+            liked
+          }
+          className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-bold transition ${
+            liked
+              ? "border-[#F59E0B]/50 bg-[#F59E0B]/10 text-[#D97706] dark:text-[#F59E0B]"
+              : "border-[#07162E]/10 text-slate-400 hover:border-[#F59E0B]/40 hover:text-[#D97706] dark:border-white/10 dark:text-slate-500 dark:hover:text-[#F59E0B]"
+          }`}
         >
           <Heart
-            size={14}
+            size={13}
             fill={
               liked
                 ? "currentColor"
@@ -231,65 +294,105 @@ export default function CommentItem({
             }
           />
 
-          <span>{likes}</span>
+          {likes}
         </button>
       </div>
 
-      {/* COMMENT */}
-      <p className="mt-3 whitespace-pre-line text-xs leading-6 text-slate-700 sm:text-sm dark:text-slate-300">
+      {/* =================================================
+          COMMENT CONTENT
+      ================================================= */}
+
+      <p className="mt-4 whitespace-pre-line break-words text-[13px] leading-6 text-slate-600 sm:text-sm dark:text-slate-300">
         {comment.content}
       </p>
 
-      {/* REPLY ACTION */}
-      <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
-        <button
-          type="button"
-          onClick={() =>
-            setReplyOpen(
-              (current) => !current
-            )
-          }
-          className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 transition hover:text-amber-600"
+      {/* =================================================
+          REPLY TOGGLE
+      ================================================= */}
+
+      <button
+        type="button"
+        onClick={() =>
+          setReplyOpen(
+            (current) =>
+              !current
+          )
+        }
+        aria-expanded={
+          replyOpen
+        }
+        className="mt-5 inline-flex min-h-9 items-center gap-2 rounded-lg text-[10px] font-bold text-slate-500 transition hover:text-[#D97706] dark:text-slate-400 dark:hover:text-[#F59E0B]"
+      >
+        <MessageCircle
+          size={13}
+        />
+
+        {replies.length >
+        0
+          ? `${replies.length} ${
+              replies.length ===
+              1
+                ? "reply"
+                : "replies"
+            }`
+          : "Reply"}
+
+        <span
+          className={`text-[9px] transition-transform duration-300 ${
+            replyOpen
+              ? "rotate-180"
+              : ""
+          }`}
         >
-          <MessageCircle size={14} />
+          ↓
+        </span>
+      </button>
 
-          {comment.replies.length > 0
-            ? `${comment.replies.length} ${
-                comment.replies.length === 1
-                  ? "reply"
-                  : "replies"
-              }`
-            : "Reply"}
-        </button>
-      </div>
+      {/* =================================================
+          REPLY DRAWER
+      ================================================= */}
 
-      {/* REPLIES */}
       {replyOpen && (
-        <div className="mt-4 border-l-2 border-amber-300 pl-3 dark:border-amber-700">
-          {comment.replies.length > 0 && (
-            <div className="space-y-2">
-              {comment.replies.map(
-                (reply) => (
+        <div className="mt-4 border-l-2 border-[#F59E0B]/50 pl-3 sm:pl-4">
+          {/* =============================================
+              EXISTING REPLIES
+          ============================================= */}
+
+          {replies.length >
+            0 && (
+            <div className="space-y-2.5">
+              {replies.map(
+                (
+                  reply
+                ) => (
                   <div
-                    key={reply.id}
-                    className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"
+                    key={
+                      reply.id
+                    }
+                    className="rounded-[12px] border border-[#07162E]/10 bg-white p-3.5 sm:p-4 dark:border-white/10 dark:bg-[#0B1A2A]"
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100">
-                        {reply.author}
+                    <div className="flex items-center gap-2">
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#F59E0B]/10 text-[9px] font-extrabold text-[#D97706] dark:text-[#F59E0B]">
+                        {(
+                          reply.author ||
+                          "A"
+                        )
+                          .charAt(
+                            0
+                          )
+                          .toUpperCase()}
                       </span>
 
-                      {reply.createdAt && (
-                        <span className="text-[9px] text-slate-400">
-                          {formatDate(
-                            reply.createdAt
-                          )}
-                        </span>
-                      )}
+                      <p className="truncate text-[10px] font-extrabold text-[#07162E] dark:text-white">
+                        {reply.author ||
+                          "Anonymous"}
+                      </p>
                     </div>
 
-                    <p className="mt-1.5 whitespace-pre-line text-[11px] leading-5 text-slate-600 dark:text-slate-400">
-                      {reply.content}
+                    <p className="mt-2 whitespace-pre-line break-words text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+                      {
+                        reply.content
+                      }
                     </p>
                   </div>
                 )
@@ -297,70 +400,111 @@ export default function CommentItem({
             </div>
           )}
 
-          {/* REPLY FORM */}
+          {/* =============================================
+              REPLY FORM
+          ============================================= */}
+
           <form
-            onSubmit={submitReply}
-            className="mt-3 space-y-2"
+            onSubmit={
+              submitReply
+            }
+            className="mt-4 rounded-[14px] border border-[#07162E]/10 bg-white p-3.5 sm:p-4 dark:border-white/10 dark:bg-[#0B1A2A]"
           >
+            <span className="text-[8px] font-extrabold uppercase tracking-[0.17em] text-[#D97706] dark:text-[#F59E0B]">
+              Write a reply
+            </span>
+
+            {/* NAME */}
+
             <input
-              type="text"
-              value={replyAuthor}
-              onChange={(event) =>
-                setReplyAuthor(
-                  event.target.value
+              value={
+                author
+              }
+              onChange={(
+                event
+              ) =>
+                setAuthor(
+                  event.target
+                    .value
                 )
               }
               placeholder="Your name (optional)"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="mt-3 min-h-10 w-full rounded-xl border border-[#07162E]/10 bg-[#FFFDF8] px-3 text-[11px] text-[#07162E] outline-none transition placeholder:text-slate-400 focus:border-[#F59E0B] focus:ring-4 focus:ring-[#F59E0B]/10 dark:border-white/10 dark:bg-[#06111F] dark:text-white"
             />
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={replyContent}
-                onChange={(event) =>
-                  setReplyContent(
-                    event.target.value
-                  )
-                }
-                required
-                placeholder="Write a reply..."
-                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-              />
+            {/* REPLY */}
 
-              <button
-                type="submit"
-                disabled={
-                  submitting ||
-                  !replyContent.trim()
-                }
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800 disabled:opacity-40 dark:bg-amber-400 dark:text-slate-950"
-                aria-label="Submit reply"
-              >
-                <Send size={14} />
-              </button>
-            </div>
+            <textarea
+              value={
+                content
+              }
+              onChange={(
+                event
+              ) =>
+                setContent(
+                  event.target
+                    .value
+                )
+              }
+              required
+              rows={3}
+              placeholder="Write a reply..."
+              className="mt-2.5 w-full resize-none rounded-xl border border-[#07162E]/10 bg-[#FFFDF8] px-3 py-2.5 text-[11px] leading-5 text-[#07162E] outline-none transition placeholder:text-slate-400 focus:border-[#F59E0B] focus:ring-4 focus:ring-[#F59E0B]/10 dark:border-white/10 dark:bg-[#06111F] dark:text-white"
+            />
 
-            {/* Honeypot */}
+            {/* HONEYPOT */}
+
             <input
               type="text"
               tabIndex={-1}
               autoComplete="off"
-              value={website}
-              onChange={(event) =>
+              value={
+                website
+              }
+              onChange={(
+                event
+              ) =>
                 setWebsite(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
               className="absolute left-[-9999px] h-px w-px"
               aria-hidden="true"
             />
 
-            {message && (
-              <p className="text-[10px] leading-5 text-slate-500 dark:text-slate-400">
+            {/* SUBMIT */}
+
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p
+                className={`text-[9px] leading-4 ${
+                  message.includes(
+                    "received"
+                  )
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-slate-400 dark:text-slate-500"
+                }`}
+              >
                 {message}
               </p>
-            )}
+
+              <button
+                type="submit"
+                disabled={
+                  submitting ||
+                  !content.trim()
+                }
+                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#F59E0B] px-4 text-[10px] font-extrabold text-[#07162E] transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+              >
+                <Send
+                  size={13}
+                />
+
+                {submitting
+                  ? "Sending..."
+                  : "Send Reply"}
+              </button>
+            </div>
           </form>
         </div>
       )}

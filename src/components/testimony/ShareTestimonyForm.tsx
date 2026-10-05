@@ -7,6 +7,15 @@ import {
 
 import Link from "next/link";
 
+import {
+  ArrowLeft,
+  Check,
+  RotateCcw,
+  Send,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import ContentPreview from "@/components/editor/ContentPreview";
 
@@ -36,146 +45,261 @@ type SubmissionState =
   | "error";
 
 export default function ShareTestimonyForm() {
-  const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
-  const [category, setCategory] =
-    useState("Faith");
-  const [content, setContent] = useState("");
+  const [
+    title,
+    setTitle,
+  ] = useState("");
 
-  const [anonymous, setAnonymous] =
-    useState(false);
+  const [
+    author,
+    setAuthor,
+  ] = useState("");
 
-  const [website, setWebsite] =
-    useState("");
+  const [
+    category,
+    setCategory,
+  ] = useState(
+    "Faith"
+  );
 
-  const [status, setStatus] =
-    useState<SubmissionState>("idle");
+  const [
+    content,
+    setContent,
+  ] = useState("");
 
-  const [message, setMessage] =
-    useState("");
+  const [
+    anonymous,
+    setAnonymous,
+  ] = useState(false);
+
+  const [
+    website,
+    setWebsite,
+  ] = useState("");
+
+  const [
+    status,
+    setStatus,
+  ] =
+    useState<SubmissionState>(
+      "idle"
+    );
+
+  const [
+    message,
+    setMessage,
+  ] = useState("");
 
   const titleError =
     title.length > 0
-      ? validateTitle(title)
+      ? validateTitle(
+          title
+        )
       : null;
 
   const canSubmit =
-    title.trim().length > 0 &&
-    title.length <= CONTENT_LIMITS.title &&
-    content.trim().length > 0 &&
+    title.trim().length >
+      0 &&
+    title.length <=
+      CONTENT_LIMITS.title &&
+    content.trim().length >
+      0 &&
     (anonymous ||
-      author.trim().length > 0) &&
-    status !== "submitting";
+      author
+        .trim()
+        .length > 0) &&
+    status !==
+      "submitting";
 
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+  const handleSubmit =
+    async (
+      event: FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
 
-    if (!canSubmit) return;
-
-    setStatus("submitting");
-    setMessage("");
-
-    try {
-      const response = await fetch(
-        "/api/testimonies",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            title,
-            author,
-            category,
-            content,
-            anonymous,
-            website,
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.message ||
-            "Submission failed."
-        );
+      if (!canSubmit) {
+        return;
       }
 
-      setStatus("success");
-
-      setMessage(
-        result.message ||
-          "Your testimony has been received."
+      setStatus(
+        "submitting"
       );
 
-      setTitle("");
-      setAuthor("");
-      setCategory("Faith");
-      setContent("");
-      setAnonymous(false);
-      setWebsite("");
-    } catch (error) {
-      setStatus("error");
+      setMessage("");
 
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "We couldn't submit your testimony."
-      );
-    }
-  };
+      try {
+        const response =
+          await fetch(
+            "/api/testimonies",
+            {
+              method:
+                "POST",
 
-  if (status === "success") {
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify(
+                {
+                  title,
+                  author,
+                  category,
+                  content,
+                  anonymous,
+                  website,
+                }
+              ),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.message ||
+              "Submission failed."
+          );
+        }
+
+        setStatus(
+          "success"
+        );
+
+        setMessage(
+          result.message ||
+            "Your testimony has been received."
+        );
+
+        setTitle("");
+        setAuthor("");
+        setCategory(
+          "Faith"
+        );
+        setContent("");
+        setAnonymous(
+          false
+        );
+        setWebsite("");
+      } catch (
+        error
+      ) {
+        setStatus(
+          "error"
+        );
+
+        setMessage(
+          error instanceof
+            Error
+            ? error.message
+            : "We couldn't submit your testimony."
+        );
+      }
+    };
+
+  /* ======================================================
+     SUCCESS STATE
+  ====================================================== */
+
+  if (
+    status ===
+    "success"
+  ) {
     return (
-      <div className="overflow-hidden rounded-3xl border border-amber-200 bg-white shadow-sm">
-        <div className="h-1 bg-amber-500" />
+      <div className="relative overflow-hidden rounded-[24px] border border-[#07162E]/10 bg-white shadow-[0_20px_60px_rgba(7,22,46,0.06)] transition-colors duration-300 dark:border-white/10 dark:bg-[#0B1A2A] dark:shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
+        {/* ACCENT */}
 
-        <div className="px-6 py-12 text-center sm:px-10 sm:py-16">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-amber-50 text-2xl text-amber-600">
-            ✓
+        <div className="h-[3px] bg-[#F59E0B]" />
+
+        {/* DECORATIVE GLOW */}
+
+        <div className="pointer-events-none absolute -right-20 top-10 size-64 rounded-full bg-[#F59E0B]/[0.06] blur-3xl dark:bg-[#F59E0B]/[0.04]" />
+
+        <div className="relative px-6 py-12 text-center sm:px-10 sm:py-16 lg:px-14">
+          {/* ICON */}
+
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full border border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#D97706] dark:border-[#F59E0B]/25 dark:bg-[#F59E0B]/10 dark:text-[#F59E0B]">
+            <Check
+              size={27}
+              strokeWidth={
+                2
+              }
+            />
           </div>
 
-          <span className="mt-6 block text-[10px] font-extrabold uppercase tracking-[0.2em] text-amber-700">
-            Testimony received
+          <span className="mt-7 block text-[9px] font-extrabold uppercase tracking-[0.22em] text-[#D97706] dark:text-[#F59E0B]">
+            Testimony
+            received
           </span>
 
-          <h2 className="mx-auto mt-3 max-w-lg text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
-            Thank you for sharing what God has done.
+          <h2 className="mx-auto mt-3 max-w-[620px] font-serif text-4xl leading-[1.02] tracking-[-0.045em] text-[#07162E] sm:text-5xl dark:text-white">
+            Thank you for
+            sharing.
           </h2>
 
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+          <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-slate-600 dark:text-slate-300">
             {message}
           </p>
 
-          <p className="mx-auto mt-2 max-w-lg text-xs leading-6 text-slate-400">
-            Every public testimony is reviewed before
-            publication.
-          </p>
+          <div className="mx-auto mt-6 flex max-w-lg items-start justify-center gap-2 rounded-xl border border-[#07162E]/10 bg-[#FFFDF8] px-4 py-3 text-left dark:border-white/10 dark:bg-[#06111F]">
+            <ShieldCheck
+              size={16}
+              className="mt-0.5 shrink-0 text-[#D97706] dark:text-[#F59E0B]"
+            />
+
+            <p className="text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+              Every public
+              testimony is
+              reviewed before
+              publication.
+              This helps us
+              protect privacy
+              and care for the
+              community.
+            </p>
+          </div>
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <button
               type="button"
               onClick={() => {
-                setStatus("idle");
-                setMessage("");
+                setStatus(
+                  "idle"
+                );
+
+                setMessage(
+                  ""
+                );
               }}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-5 text-xs font-bold text-white transition hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950"
+              className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#F59E0B] px-5 text-xs font-extrabold text-[#07162E] transition hover:-translate-y-0.5 hover:bg-amber-400"
             >
-              Share another testimony
+              <RotateCcw
+                size={
+                  14
+                }
+                className="transition-transform duration-300 group-hover:-rotate-12"
+              />
+
+              Share another
+              testimony
             </button>
 
             <Link
               href="/testimonies"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 px-5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#07162E]/10 bg-white px-5 text-xs font-bold text-[#07162E] transition hover:border-[#F59E0B]/50 hover:bg-[#FFFDF8] dark:border-white/10 dark:bg-[#06111F] dark:text-white dark:hover:border-[#F59E0B]/40 dark:hover:bg-[#0E1628]"
             >
-              Read testimonies
+              <ArrowLeft
+                size={
+                  14
+                }
+                className="transition-transform duration-300 group-hover:-translate-x-1"
+              />
+
+              Read
+              testimonies
             </Link>
           </div>
         </div>
@@ -183,12 +307,21 @@ export default function ShareTestimonyForm() {
     );
   }
 
+  /* ======================================================
+     FORM
+  ====================================================== */
+
   return (
     <form
-      onSubmit={handleSubmit}
-      className="space-y-7"
+      onSubmit={
+        handleSubmit
+      }
+      className="space-y-8"
     >
-      {/* Honeypot */}
+      {/* =================================================
+          HONEYPOT
+      ================================================= */}
+
       <div
         className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden"
         aria-hidden="true"
@@ -204,207 +337,363 @@ export default function ShareTestimonyForm() {
           tabIndex={-1}
           autoComplete="off"
           value={website}
-          onChange={(event) =>
-            setWebsite(event.target.value)
+          onChange={(
+            event
+          ) =>
+            setWebsite(
+              event.target
+                .value
+            )
           }
         />
       </div>
 
-      {/* TITLE */}
-      <div>
-        <div className="flex items-center justify-between gap-4">
-          <label
-            htmlFor="testimony-title"
-            className="text-sm font-bold text-slate-900 dark:text-white"
-          >
-            Testimony title
-          </label>
+      {/* =================================================
+          INTRO
+      ================================================= */}
 
-          <span
-            className={`text-[11px] font-semibold ${
-              title.length >
-              CONTENT_LIMITS.title
-                ? "text-red-500"
-                : title.length >= 80
-                  ? "text-amber-600"
-                  : "text-slate-400"
-            }`}
-          >
-            {title.length}/
-            {CONTENT_LIMITS.title}
-          </span>
+      <div className="flex flex-col gap-3 border-b border-[#07162E]/10 pb-7 sm:flex-row sm:items-start sm:justify-between dark:border-white/10">
+        <div>
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.19em] text-[#D97706] dark:text-[#F59E0B]">
+            Your testimony
+          </p>
+
+          <h3 className="mt-2 font-serif text-2xl tracking-[-0.035em] text-[#07162E] dark:text-white">
+            Share honestly.
+            Write freely.
+          </h3>
         </div>
 
-        <input
-          id="testimony-title"
-          type="text"
-          value={title}
-          maxLength={
-            CONTENT_LIMITS.title + 20
-          }
-          onChange={(event) =>
-            setTitle(event.target.value)
-          }
-          placeholder="Give your testimony a clear title"
-          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-        />
-
-        {titleError && (
-          <p className="mt-2 text-xs font-medium text-red-500">
-            {titleError}
-          </p>
-        )}
+        <p className="max-w-sm text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+          Fields marked by
+          their context are
+          required before the
+          testimony can be
+          submitted.
+        </p>
       </div>
 
-      {/* NAME / ANONYMOUS */}
-      <div>
-        <label
-          htmlFor="testimony-author"
-          className="text-sm font-bold text-slate-900 dark:text-white"
-        >
-          Your name
-        </label>
+      {/* =================================================
+          BASIC INFORMATION
+      ================================================= */}
 
-        <input
-          id="testimony-author"
-          type="text"
-          value={
-            anonymous ? "" : author
-          }
-          disabled={anonymous}
-          onChange={(event) =>
-            setAuthor(event.target.value)
-          }
-          placeholder="How should your name appear?"
-          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:disabled:bg-slate-800"
-        />
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* TITLE */}
 
-        <label className="mt-3 flex cursor-pointer items-center gap-3">
+        <div className="md:col-span-2">
+          <div className="flex items-center justify-between gap-4">
+            <label
+              htmlFor="testimony-title"
+              className="text-[12px] font-extrabold text-[#07162E] dark:text-slate-100"
+            >
+              Testimony
+              title
+            </label>
+
+            <span
+              className={`text-[10px] font-bold ${
+                title.length >
+                CONTENT_LIMITS.title
+                  ? "text-red-500"
+                  : title.length >=
+                      80
+                    ? "text-[#D97706] dark:text-[#F59E0B]"
+                    : "text-slate-400 dark:text-slate-500"
+              }`}
+            >
+              {title.length}/
+              {
+                CONTENT_LIMITS.title
+              }
+            </span>
+          </div>
+
           <input
-            type="checkbox"
-            checked={anonymous}
-            onChange={(event) =>
-              setAnonymous(
-                event.target.checked
+            id="testimony-title"
+            type="text"
+            value={title}
+            maxLength={
+              CONTENT_LIMITS.title +
+              20
+            }
+            onChange={(
+              event
+            ) =>
+              setTitle(
+                event.target
+                  .value
               )
             }
-            className="size-4 accent-amber-500"
+            placeholder="Give your testimony a simple, clear title"
+            className="mt-2 min-h-[50px] w-full rounded-xl border border-[#07162E]/10 bg-[#FFFDF8] px-4 py-3.5 text-sm text-[#07162E] outline-none transition placeholder:text-slate-400 focus:border-[#F59E0B] focus:ring-4 focus:ring-[#F59E0B]/10 dark:border-white/10 dark:bg-[#06111F] dark:text-white dark:placeholder:text-slate-600"
           />
 
-          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-            Publish my testimony
-            anonymously
-          </span>
-        </label>
-      </div>
-
-      {/* CATEGORY */}
-      <div>
-        <label
-          htmlFor="testimony-category"
-          className="text-sm font-bold text-slate-900 dark:text-white"
-        >
-          Category
-        </label>
-
-        <select
-          id="testimony-category"
-          value={category}
-          onChange={(event) =>
-            setCategory(
-              event.target.value
-            )
-          }
-          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-        >
-          {categories.map(
-            (categoryName) => (
-              <option
-                key={categoryName}
-                value={categoryName}
-              >
-                {categoryName}
-              </option>
-            )
+          {titleError && (
+            <p className="mt-2 text-xs font-medium text-red-500 dark:text-red-400">
+              {
+                titleError
+              }
+            </p>
           )}
-        </select>
+        </div>
+
+        {/* CATEGORY */}
+
+        <div>
+          <label
+            htmlFor="testimony-category"
+            className="text-[12px] font-extrabold text-[#07162E] dark:text-slate-100"
+          >
+            Category
+          </label>
+
+          <select
+            id="testimony-category"
+            value={category}
+            onChange={(
+              event
+            ) =>
+              setCategory(
+                event.target
+                  .value
+              )
+            }
+            className="mt-2 min-h-[50px] w-full rounded-xl border border-[#07162E]/10 bg-[#FFFDF8] px-4 py-3.5 text-sm text-[#07162E] outline-none transition focus:border-[#F59E0B] focus:ring-4 focus:ring-[#F59E0B]/10 dark:border-white/10 dark:bg-[#06111F] dark:text-white"
+          >
+            {categories.map(
+              (
+                categoryName
+              ) => (
+                <option
+                  key={
+                    categoryName
+                  }
+                  value={
+                    categoryName
+                  }
+                >
+                  {
+                    categoryName
+                  }
+                </option>
+              )
+            )}
+          </select>
+        </div>
+
+        {/* NAME */}
+
+        <div>
+          <label
+            htmlFor="testimony-author"
+            className="text-[12px] font-extrabold text-[#07162E] dark:text-slate-100"
+          >
+            Your name
+          </label>
+
+          <input
+            id="testimony-author"
+            type="text"
+            value={
+              anonymous
+                ? ""
+                : author
+            }
+            disabled={
+              anonymous
+            }
+            onChange={(
+              event
+            ) =>
+              setAuthor(
+                event.target
+                  .value
+              )
+            }
+            placeholder={
+              anonymous
+                ? "Your testimony will appear as Anonymous"
+                : "How should your name appear?"
+            }
+            className="mt-2 min-h-[50px] w-full rounded-xl border border-[#07162E]/10 bg-[#FFFDF8] px-4 py-3.5 text-sm text-[#07162E] outline-none transition placeholder:text-slate-400 focus:border-[#F59E0B] focus:ring-4 focus:ring-[#F59E0B]/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-white/10 dark:bg-[#06111F] dark:text-white dark:placeholder:text-slate-600 dark:disabled:bg-[#0E1628] dark:disabled:text-slate-600"
+          />
+
+          <label className="mt-3 flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={
+                anonymous
+              }
+              onChange={(
+                event
+              ) =>
+                setAnonymous(
+                  event.target
+                    .checked
+                )
+              }
+              className="mt-0.5 size-4 shrink-0 accent-[#F59E0B]"
+            />
+
+            <span className="text-[11px] font-medium leading-5 text-slate-600 dark:text-slate-400">
+              Publish my
+              testimony
+              anonymously
+            </span>
+          </label>
+        </div>
       </div>
 
-      {/* TESTIMONY BODY */}
-      <div>
-        <div className="mb-2">
-          <label className="text-sm font-bold text-slate-900 dark:text-white">
+      {/* =================================================
+          TESTIMONY BODY
+      ================================================= */}
+
+      <div className="border-t border-[#07162E]/10 pt-7 dark:border-white/10">
+        <div className="mb-4">
+          <label className="text-[12px] font-extrabold text-[#07162E] dark:text-slate-100">
             Your testimony
           </label>
 
-          <p className="mt-1 text-xs leading-5 text-slate-400">
-            Tell the story in your own
-            words. The body has no
+          <p className="mt-1 max-w-2xl text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+            Share what
+            happened, what
+            changed, and what
+            you want someone
+            else to remember
+            from your story.
+            The body has no
             character limit.
           </p>
         </div>
 
-        <RichTextEditor
-          value={content}
-          onChange={setContent}
-          placeholder="Share what God has done..."
-        />
+        {/* RichTextEditor may have its own styling.
+            This wrapper gives it the correct themed
+            surrounding surface. */}
+
+        <div className="overflow-hidden rounded-[16px] border border-[#07162E]/10 bg-[#FFFDF8] transition-colors dark:border-white/10 dark:bg-[#06111F]">
+          <RichTextEditor
+              value={content}
+              onChange={setContent}
+              placeholder="Write your testimony here..."
+            />
+        </div>
       </div>
 
-      {/* PREVIEW */}
-      <ContentPreview
-        content={content}
-      />
+      {/* =================================================
+          PREVIEW
+      ================================================= */}
 
-      {/* MODERATION MESSAGE */}
-      <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
-        <span
-          aria-hidden="true"
-          className="mt-0.5"
-        >
-          ✦
-        </span>
+      {content
+        .trim()
+        .length >
+        0 && (
+        <div className="rounded-[16px] border border-[#07162E]/10 bg-[#FFFDF8] p-5 transition-colors dark:border-white/10 dark:bg-[#06111F]">
+          <div className="mb-4 flex items-center gap-2">
+            <Sparkles
+              size={
+                14
+              }
+              className="text-[#D97706] dark:text-[#F59E0B]"
+            />
+
+            <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              Preview
+            </span>
+          </div>
+
+         {content.trim().length > 0 && (
+            <ContentPreview
+              content={content}
+            />
+          )}
+        </div>
+      )}
+
+      {/* =================================================
+          MODERATION NOTICE
+      ================================================= */}
+
+      <div className="flex gap-3 rounded-[16px] border border-[#F59E0B]/25 bg-[#F59E0B]/[0.07] p-4 transition-colors dark:border-[#F59E0B]/20 dark:bg-[#F59E0B]/[0.06]">
+        <ShieldCheck
+          size={17}
+          className="mt-0.5 shrink-0 text-[#D97706] dark:text-[#F59E0B]"
+        />
 
         <div>
-          <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-            Reviewed before publication
+          <p className="text-[11px] font-extrabold text-[#07162E] dark:text-slate-100">
+            Reviewed before
+            publication
           </p>
 
-          <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-400">
-            Your testimony will first be
-            reviewed by The Witness Path
-            team before it appears publicly.
+          <p className="mt-1 text-[11px] leading-5 text-slate-600 dark:text-slate-400">
+            Your testimony
+            will first be
+            reviewed by The
+            Witness Path team
+            before it appears
+            publicly. This
+            helps protect
+            privacy and keep
+            the platform safe.
           </p>
         </div>
       </div>
 
-      {/* ERROR */}
-      {status === "error" &&
+      {/* =================================================
+          ERROR
+      ================================================= */}
+
+      {status ===
+        "error" &&
         message && (
           <div
             role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-700"
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-700 dark:border-red-500/20 dark:bg-red-950/25 dark:text-red-300"
           >
             {message}
           </div>
         )}
 
-      {/* SUBMIT */}
-      <div className="flex flex-col gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
-        <p className="max-w-md text-xs leading-5 text-slate-400">
-          Your testimony does not need to
-          sound polished. Share it
-          honestly.
+      {/* =================================================
+          SUBMIT
+      ================================================= */}
+
+      <div className="flex flex-col gap-5 border-t border-[#07162E]/10 pt-7 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
+        <p className="max-w-md text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+          You can take your
+          time. Your story
+          does not need to
+          sound polished to
+          matter.
         </p>
 
         <button
           type="submit"
-          disabled={!canSubmit}
-          className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-900 px-6 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-500"
+          disabled={
+            !canSubmit
+          }
+          className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#07162E] px-6 text-xs font-extrabold text-white shadow-[0_10px_24px_rgba(7,22,46,0.16)] transition hover:-translate-y-0.5 hover:bg-[#0B1A2A] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 dark:bg-[#F59E0B] dark:text-[#07162E] dark:shadow-[0_10px_24px_rgba(245,158,11,0.12)] dark:hover:bg-amber-400"
         >
-          {status === "submitting"
-            ? "Submitting..."
-            : "Submit Testimony"}
+          {status ===
+          "submitting" ? (
+            <>
+              <span className="size-3.5 animate-spin rounded-full border-2 border-current border-r-transparent" />
+
+              Submitting...
+            </>
+          ) : (
+            <>
+              Submit
+              Testimony
+
+              <Send
+                size={
+                  14
+                }
+                className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              />
+            </>
+          )}
         </button>
       </div>
     </form>

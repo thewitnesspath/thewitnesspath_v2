@@ -1,25 +1,125 @@
 @import "tailwindcss";
+
 @custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary: #020617;
-  --color-secondary: #0E1628;
-  --color-accent: #F59E0B;
+  --color-secondary: #0e1628;
+  --color-accent: #f59e0b;
+}
+
+:root {
+  color-scheme: light;
+  --page-bg: #fffdf8;
+  --page-text: #07162e;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --page-bg: #06111f;
+  --page-text: #ffffff;
 }
 
 html {
   scroll-behavior: smooth;
+  background: var(--page-bg);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  background: var(--page-bg);
+  color: var(--page-text);
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  -webkit-font-smoothing:
+    antialiased;
+  text-rendering:
+    optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
 }
 
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color:
+    transparent;
+}
+
+button,
+a {
+  outline-offset: 3px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #f59e0b;
+}
+
 ::selection {
-  background: #F59E0B;
+  background: #f59e0b;
   color: #020617;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+:root {
+  color-scheme: light;
+
+  --twp-bg: #fffdf8;
+  --twp-surface: #ffffff;
+  --twp-surface-soft: #f8f5ee;
+
+  --twp-text: #07162e;
+  --twp-text-muted: #64748b;
+
+  --twp-border: rgba(7, 22, 46, 0.1);
+
+  --twp-accent: #f59e0b;
+  --twp-accent-text: #d97706;
+
+  --twp-deep: #07162e;
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --twp-bg: #06111f;
+  --twp-surface: #0b1a2a;
+  --twp-surface-soft: #0e1628;
+
+  --twp-text: #ffffff;
+  --twp-text-muted: #94a3b8;
+
+  --twp-border: rgba(255, 255, 255, 0.1);
+
+  --twp-accent: #f59e0b;
+  --twp-accent-text: #f59e0b;
+
+  --twp-deep: #020617;
+}
+
+html,
+body {
+  background: var(--twp-bg);
+  color: var(--twp-text);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }

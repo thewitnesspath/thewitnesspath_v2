@@ -3,11 +3,18 @@ import {
 } from "next/server";
 
 import {
-  supabaseAdmin,
-} from "@/lib/supabase/admin";
+  createClient,
+} from "@supabase/supabase-js";
 
-export const runtime =
-  "nodejs";
+const categories =
+  new Set([
+    "Health & Healing",
+    "Financial Provision",
+    "Career & Business",
+    "Family & Marriage",
+    "Spiritual Growth & Strength",
+    "Other Challenges",
+  ]);
 
 export async function POST(
   request: Request
@@ -15,18 +22,6 @@ export async function POST(
   try {
     const body =
       await request.json();
-
-    const website =
-      typeof body.website ===
-      "string"
-        ? body.website.trim()
-        : "";
-
-    if (website) {
-      return NextResponse.json({
-        success: true,
-      });
-    }
 
     const category =
       typeof body.category ===
@@ -40,13 +35,30 @@ export async function POST(
         ? body.content.trim()
         : "";
 
-    if (!content) {
+    const website =
+      typeof body.website ===
+      "string"
+        ? body.website.trim()
+        : "";
+
+    /* Honeypot */
+
+    if (website) {
+      return NextResponse.json({
+        message:
+          "Your prayer request has been received.",
+      });
+    }
+
+    if (
+      !categories.has(
+        category
+      )
+    ) {
       return NextResponse.json(
         {
-          success: false,
-
           message:
-            "Prayer request cannot be empty.",
+            "Please select a valid prayer category.",
         },
         {
           status: 400,
@@ -54,40 +66,95 @@ export async function POST(
       );
     }
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from(
-        "PrayerRequests"
-      )
-      .insert([
+    if (
+      content.length <
+      10
+    ) {
+      return NextResponse.json(
         {
-          category:
-            category ||
-            "General Prayer",
-
-          content,
-
-          prayer_count: 0,
-
-          is_approved:
-            false,
+          message:
+            "Please tell us a little more about what you would like prayer for.",
         },
-      ])
-      .select("id")
-      .single();
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      content.length >
+      2500
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Your prayer request is too long.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const url =
+      process.env
+        .NEXT_PUBLIC_SUPABASE_URL;
+
+    const key =
+      process.env
+        .SUPABASE_SERVICE_ROLE_KEY;
+
+    if (
+      !url ||
+      !key
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Prayer submission is temporarily unavailable.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const admin =
+      createClient(
+        url,
+        key,
+        {
+          auth: {
+            persistSession:
+              false,
+            autoRefreshToken:
+              false,
+          },
+        }
+      );
+
+    const {
+      error,
+    } =
+      await admin
+        .from(
+          "PrayerRequests"
+        )
+        .insert({
+          category,
+          content,
+          prayer_count: 0,
+          is_approved: false,
+        });
 
     if (error) {
       console.error(
-        "Unable to submit prayer request:",
-        error.message
+        "Prayer request insert failed:",
+        error
       );
 
       return NextResponse.json(
         {
-          success: false,
-
           message:
             "Your prayer request could not be submitted.",
         },
@@ -98,21 +165,20 @@ export async function POST(
     }
 
     return NextResponse.json({
-      success: true,
-
-      id:
-        String(data.id),
-
       message:
         "Your prayer request has been received and is awaiting review.",
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      error
+    );
+
     return NextResponse.json(
       {
-        success: false,
-
         message:
-          "Something went wrong while submitting your prayer request.",
+          "Your prayer request could not be submitted.",
       },
       {
         status: 500,

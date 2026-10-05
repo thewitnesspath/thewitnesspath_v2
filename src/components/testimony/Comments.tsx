@@ -237,7 +237,10 @@ export default function Comments({
                     (comment) => (
                       <CommentItem
                         key={comment.id}
-                        comment={comment}
+                        comment={{
+                          ...comment,
+                          postId: testimonyId,
+                        }}
                       />
                     )
                   )}

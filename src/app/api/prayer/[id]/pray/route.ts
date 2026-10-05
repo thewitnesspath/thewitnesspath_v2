@@ -1,56 +1,92 @@
-import { NextResponse } from "next/server";
+import {
+  NextResponse,
+} from "next/server";
 
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  createClient,
+} from "@supabase/supabase-js";
 
-type RouteContext = {
+type Context = {
   params: Promise<{
     id: string;
   }>;
 };
 
-export const runtime = "nodejs";
-
 export async function POST(
   _request: Request,
-  context: RouteContext
+  {
+    params,
+  }: Context
 ) {
-  const { id } = await context.params;
+  const {
+    id,
+  } =
+    await params;
 
-  if (!/^\d+$/.test(id)) {
+  const url =
+    process.env
+      .NEXT_PUBLIC_SUPABASE_URL;
+
+  const key =
+    process.env
+      .SUPABASE_SERVICE_ROLE_KEY;
+
+  if (
+    !url ||
+    !key
+  ) {
     return NextResponse.json(
       {
-        success: false,
+        message:
+          "Prayer action unavailable.",
       },
       {
-        status: 400,
+        status: 500,
       }
     );
   }
 
-  const requestId =
-    Number(id);
+  const admin =
+    createClient(
+      url,
+      key,
+      {
+        auth: {
+          persistSession:
+            false,
+          autoRefreshToken:
+            false,
+        },
+      }
+    );
 
   const {
-    data: prayer,
-  } = await supabaseAdmin
-    .from("PrayerRequests")
-    .select(
-      "id, is_approved"
-    )
-    .eq(
-      "id",
-      requestId
-    )
-    .eq(
-      "is_approved",
-      true
-    )
-    .maybeSingle();
+    data,
+    error,
+  } =
+    await admin
+      .from(
+        "PrayerRequests"
+      )
+      .select(
+        "id, prayer_count, is_approved"
+      )
+      .eq(
+        "id",
+        id
+      )
+      .eq(
+        "is_approved",
+        true
+      )
+      .maybeSingle();
 
-  if (!prayer) {
+  if (
+    error ||
+    !data
+  ) {
     return NextResponse.json(
       {
-        success: false,
         message:
           "Prayer request not found.",
       },
@@ -60,28 +96,36 @@ export async function POST(
     );
   }
 
+  const nextCount =
+    (
+      data.prayer_count ??
+      0
+    ) + 1;
+
   const {
-    data,
-    error,
-  } = await supabaseAdmin.rpc(
-    "increment_prayer_count",
-    {
-      p_request_id:
-        requestId,
-    }
-  );
+    error:
+      updateError,
+  } =
+    await admin
+      .from(
+        "PrayerRequests"
+      )
+      .update({
+        prayer_count:
+          nextCount,
+      })
+      .eq(
+        "id",
+        id
+      );
 
-  if (error) {
-    console.error(
-      "Unable to record prayer:",
-      error.message
-    );
-
+  if (
+    updateError
+  ) {
     return NextResponse.json(
       {
-        success: false,
         message:
-          "Prayer could not be recorded.",
+          "Prayer count could not be updated.",
       },
       {
         status: 500,
@@ -90,7 +134,7 @@ export async function POST(
   }
 
   return NextResponse.json({
-    success: true,
-    count: data,
+    prayerCount:
+      nextCount,
   });
 }
