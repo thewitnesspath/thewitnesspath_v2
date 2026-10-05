@@ -125,7 +125,7 @@ export default async function BlogArticlePage({
                 <BlogLikeButton
                   postId={post.id}
                   initialCount={
-                    post.likes
+                    post.likes ?? 0
                   }
                 />
 
@@ -137,7 +137,9 @@ export default async function BlogArticlePage({
               <div className="flex flex-wrap gap-2">
                 <BlogLikeButton
                   postId={post.id}
-                  initialCount={post.likes}
+                  initialCount={
+                    post.likes ?? 0
+                  }
                 />
 
                 <BlogBookmarkButton
@@ -147,8 +149,8 @@ export default async function BlogArticlePage({
                 <BlogSnapshotButton
                   postId={post.id}
                   title={post.title}
-                  author={post.author}
-                  category={post.category}
+                  author={post.author ?? "Unknown author"}
+                  category={post.category ?? "General"}
                   content={post.content}
                 />
               </div>

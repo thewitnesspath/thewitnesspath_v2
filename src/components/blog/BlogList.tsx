@@ -38,7 +38,10 @@ export default function BlogList({
       new Set(
         posts
           .map((post) => post.category)
-          .filter(Boolean)
+          .filter(
+            (category): category is string =>
+              Boolean(category)
+          )
       )
     );
 
@@ -128,9 +131,9 @@ export default function BlogList({
           post.content
             .toLowerCase()
             .includes(search) ||
-          post.author
-            .toLowerCase()
-            .includes(search)
+          (post.author ?? "")
+          .toLowerCase()
+          .includes(search)
       );
     }, [
       activeCategory,

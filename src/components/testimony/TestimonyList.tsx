@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import TestimonySearch from "../../app/testimonies/TestimonySearch";
-import TestimonyFilters from "../../app/testimonies/TestimonyFilters";
-import TestimonyCard from "../../app/testimonies/TestimonyCard";
+import TestimonySearch from "../../app/(site)/testimonies/TestimonySearch";
+import TestimonyFilters from "../../app/(site)/testimonies/TestimonyFilters";
+import TestimonyCard from "../../app/(site)/testimonies/TestimonyCard";
 import EmptyState from "@/components/common/EmptyState";
 import type { Testimony } from "@/lib/types/testimony";
 

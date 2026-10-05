@@ -20,12 +20,12 @@ export type BlogPostRecord = {
 export type BlogPost = {
   id: string;
   title: string;
-  slug: string;
-  category: string;
-  author: string;
+  slug?: string | null;
+  category?: string | null;
+  author?: string | null;
   content: string;
-  likes: number;
-  views: number;
+  likes?: number | null;
+  views?: number | null;
   createdAt?: string | null;
   commentCount: number;
 };
