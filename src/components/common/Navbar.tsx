@@ -10,13 +10,19 @@ import {
   Menu,
   Moon,
   Sun,
+  UserRound,
   X,
 } from "lucide-react";
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
+
+import {
+  createBrowserSupabaseClient,
+} from "@/lib/supabase/browser";
 
 /* =========================================================
    SOCIAL ICONS
@@ -181,6 +187,23 @@ export default function Navbar() {
   const pathname =
     usePathname();
 
+    const supabase =
+  useMemo(
+    () =>
+      createBrowserSupabaseClient(),
+    []
+  );
+
+const [
+  signedIn,
+  setSignedIn,
+] = useState(false);
+
+const [
+  authReady,
+  setAuthReady,
+] = useState(false);
+
   const [
     mobileOpen,
     setMobileOpen,
@@ -252,6 +275,97 @@ export default function Navbar() {
 
     setMounted(true);
   }, []);
+
+
+  /* =========================================================
+   PUBLIC USER AUTH STATE
+========================================================= */
+
+useEffect(() => {
+  let active =
+    true;
+
+  const loadUser =
+    async () => {
+      try {
+        const {
+          data: {
+            user,
+          },
+        } =
+          await supabase.auth
+            .getUser();
+
+        if (
+          !active
+        ) {
+          return;
+        }
+
+        setSignedIn(
+          Boolean(
+            user
+          )
+        );
+      } catch {
+        if (
+          active
+        ) {
+          setSignedIn(
+            false
+          );
+        }
+      } finally {
+        if (
+          active
+        ) {
+          setAuthReady(
+            true
+          );
+        }
+      }
+    };
+
+  loadUser();
+
+  const {
+    data: {
+      subscription,
+    },
+  } =
+    supabase.auth
+      .onAuthStateChange(
+        (
+          _event,
+          session
+        ) => {
+          if (
+            !active
+          ) {
+            return;
+          }
+
+          setSignedIn(
+            Boolean(
+              session?.user
+            )
+          );
+
+          setAuthReady(
+            true
+          );
+        }
+      );
+
+  return () => {
+    active =
+      false;
+
+    subscription.unsubscribe();
+  };
+}, [
+  supabase,
+]);
 
   /* =======================================================
      SCROLL STATE
@@ -378,6 +492,25 @@ export default function Navbar() {
           link.href
         )
     );
+
+    const authHref =
+  signedIn
+    ? "/account"
+    : "/auth/login";
+
+const authLabel =
+  signedIn
+    ? "Account"
+    : "Sign in";
+
+const authActive =
+  signedIn
+    ? isActive(
+        "/account"
+      )
+    : isActive(
+        "/auth"
+      );
 
   /* =======================================================
      SOCIAL LINK HELPER
@@ -729,19 +862,37 @@ export default function Navbar() {
           <div className="hidden items-center gap-2.5 justify-self-end xl:flex">
             {/* SIGN IN */}
 
-            <Link
-              href="/auth/login"
-              className={`rounded-xl px-3.5 py-2.5 text-[10px] font-bold transition ${
-                isActive(
-                  "/auth"
-                )
-                  ? "text-[#D97706] dark:text-[#F59E0B]"
-                  : "text-slate-500 hover:text-[#07162E] dark:text-slate-400 dark:hover:text-white"
-              }`}
-            >
-              Sign in
-            </Link>
+            {/* USER ACCOUNT */}
 
+                {authReady ? (
+                  <Link
+                    href={
+                      authHref
+                    }
+                    className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-[10px] font-bold transition ${
+                      authActive
+                        ? "text-[#D97706] dark:text-[#F59E0B]"
+                        : "text-slate-500 hover:text-[#07162E] dark:text-slate-400 dark:hover:text-white"
+                    }`}
+                  >
+                    {signedIn && (
+                      <UserRound
+                        size={
+                          13
+                        }
+                      />
+                    )}
+
+                    {
+                      authLabel
+                    }
+                  </Link>
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className="h-9 w-[58px] animate-pulse rounded-xl bg-[#07162E]/5 dark:bg-white/5"
+                  />
+                )}
             {/* SUPPORT */}
 
             <Link
@@ -1157,12 +1308,28 @@ export default function Navbar() {
           =============================================== */}
 
           <div className="mt-auto grid gap-2 pt-8 sm:grid-cols-2">
-            <Link
-              href="/auth/login"
-              className="flex min-h-[50px] items-center justify-center rounded-xl border border-[#07162E]/10 bg-white px-5 text-xs font-bold text-[#07162E] transition hover:border-[#F59E0B]/50 dark:border-white/10 dark:bg-[#0B1A2A] dark:text-white"
-            >
-              Sign in
-            </Link>
+            {authReady ? (
+                    <Link
+                      href={
+                        authHref
+                      }
+                      className="flex min-h-[50px] items-center justify-center gap-2 rounded-xl border border-[#07162E]/10 bg-white px-5 text-xs font-bold text-[#07162E] transition hover:border-[#F59E0B]/50 dark:border-white/10 dark:bg-[#0B1A2A] dark:text-white"
+                    >
+                      {signedIn && (
+                        <UserRound
+                          size={
+                            14
+                          }
+                        />
+                      )}
+
+                      {
+                        authLabel
+                      }
+                    </Link>
+                  ) : (
+                    <div className="h-[50px] animate-pulse rounded-xl border border-[#07162E]/10 bg-white dark:border-white/10 dark:bg-[#0B1A2A]" />
+                  )}
 
             <Link
               href="/support"
