@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import FormattedContent from "@/components/editor/FormattedContent";
 
 import {
   ArrowDown,
@@ -25,6 +26,9 @@ export const metadata = {
   description:
     "Why The Witness Path exists: to preserve and amplify testimonies of God's mighty acts, strengthen faith and point lives to Christ.",
 };
+
+export const dynamic =
+  "force-dynamic";
 
 /* =========================================================
    TYPES
@@ -255,9 +259,11 @@ export default async function VisionPage() {
                 </span>
               </h2>
 
-              <p className="mt-8 max-w-[760px] text-[15px] leading-8 text-slate-600 sm:text-[17px] sm:leading-9 dark:text-slate-300">
-                {vision}
-              </p>
+              <div className="mt-8 max-w-[760px] text-[15px] leading-8 text-slate-600 sm:text-[17px] sm:leading-9 dark:text-slate-300">
+                <FormattedContent
+                  content={mission}
+                />
+              </div>
 
               {/* SCRIPTURE */}
 

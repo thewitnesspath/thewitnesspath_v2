@@ -11,7 +11,6 @@ import {
 } from "@/lib/supabase/admin";
 
 import {
-  CONTENT_LIMITS,
   validateTitle,
 } from "@/lib/validation/content";
 
@@ -30,10 +29,62 @@ function canAccess(
 function createSlug(
   title: string
 ) {
-  return title
+  const slug = title
     .toLowerCase()
-    .replace(/[^\w ]+/g, "")
-    .replace(/ +/g, "-");
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return (
+    slug ||
+    `article-${Date.now()}`
+  );
+}
+
+/*
+ * BUILD A UNIQUE SLUG
+ */
+async function createUniqueSlug(
+  title: string
+) {
+  const base =
+    createSlug(title);
+
+  let candidate =
+    base;
+
+  let suffix = 2;
+
+  while (true) {
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
+      .from("BlogPosts")
+      .select("id")
+      .eq(
+        "slug",
+        candidate
+      )
+      .limit(1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (
+      !data ||
+      data.length === 0
+    ) {
+      return candidate;
+    }
+
+    candidate =
+      `${base}-${suffix}`;
+
+    suffix += 1;
+  }
 }
 
 /*
@@ -74,7 +125,6 @@ export async function GET() {
       likes,
       views,
       created_at,
-      edit_code,
       BlogComments(
         id,
         is_approved
@@ -155,26 +205,13 @@ export async function GET() {
                 comment.is_approved ===
                 true
             ).length,
-
-          /*
-           * Legacy behaviour:
-           * Main Admin sees the code.
-           * Blogger does not.
-           */
-          editCode:
-            session.role ===
-            "main"
-              ? item.edit_code ??
-                null
-              : undefined,
         };
       }
     );
 
   /*
-   * Build categories from actual
-   * existing content instead of
-   * inventing a category system.
+   * BUILD CATEGORIES FROM
+   * EXISTING CONTENT
    */
   const categories =
     Array.from(
@@ -319,7 +356,9 @@ export async function POST(
     }
 
     const slug =
-      createSlug(title);
+      await createUniqueSlug(
+        title
+      );
 
     const {
       data,
@@ -351,8 +390,7 @@ export async function POST(
         `
           id,
           title,
-          slug,
-          edit_code
+          slug
         `
       )
       .single();
@@ -380,7 +418,14 @@ export async function POST(
 
       post: data,
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Blog publishing error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,

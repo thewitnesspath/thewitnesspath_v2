@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
+  Loader2,
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
@@ -33,97 +34,159 @@ export default function AdminLoginForm() {
       "admin"
     );
 
-  const [pin, setPin] =
+  const [
+    pin,
+    setPin,
+  ] =
     useState("");
 
   const [
     showPin,
     setShowPin,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     submitting,
     setSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     message,
     setMessage,
-  ] = useState("");
+  ] =
+    useState("");
 
+  /*
+   * ================================
+   * CHANGE LOGIN MODE
+   * ================================
+   */
   const changeMode = (
     nextMode: LoginMode
   ) => {
-    setMode(nextMode);
-    setPin("");
-    setMessage("");
-  };
-
-  const submit = async (
-    event:
-      FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
-
-    if (!pin.trim()) {
+    if (
+      submitting
+    ) {
       return;
     }
 
-    setSubmitting(true);
-    setMessage("");
+    setMode(
+      nextMode
+    );
 
-    try {
-      const response =
-        await fetch(
-          "/api/admin/verify-pin",
-          {
-            method: "POST",
+    setPin(
+      ""
+    );
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+    setShowPin(
+      false
+    );
 
-            body:
-              JSON.stringify({
-                pin,
-                mode,
-              }),
-          }
-        );
+    setMessage(
+      ""
+    );
+  };
 
-      const result =
-        await response.json();
+  /*
+   * ================================
+   * LOGIN
+   * ================================
+   */
+  const submit =
+    async (
+      event:
+        FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
 
-      if (!response.ok) {
-        setMessage(
-          result.message ||
-            "Unable to sign in."
-        );
+      const cleanPin =
+        pin.trim();
 
+      if (
+        !cleanPin
+      ) {
         return;
       }
 
-      router.replace(
-        "/admin"
+      setSubmitting(
+        true
       );
 
-      router.refresh();
-    } catch {
       setMessage(
-        "Unable to connect. Try again."
+        ""
       );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
+      try {
+        const response =
+          await fetch(
+            "/api/admin/verify-pin",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  pin:
+                    cleanPin,
+
+                  mode,
+                }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok
+        ) {
+          setMessage(
+            result.message ||
+              "Unable to sign in."
+          );
+
+          return;
+        }
+
+        /*
+         * The server creates the
+         * secure HTTP-only admin
+         * session cookie.
+         */
+        router.replace(
+          "/admin"
+        );
+
+        router.refresh();
+      } catch {
+        setMessage(
+          "Unable to connect. Try again."
+        );
+      } finally {
+        setSubmitting(
+          false
+        );
+      }
+    };
 
   return (
     <form
-      onSubmit={submit}
+      onSubmit={
+        submit
+      }
       className="w-full"
     >
-      {/* ACCESS TYPE */}
+      {/* =============================
+          ACCESS TYPE
+      ============================= */}
+
       <div className="mb-7 grid grid-cols-2 rounded-xl border border-white/10 bg-primary p-1">
         <button
           type="button"
@@ -132,8 +195,16 @@ export default function AdminLoginForm() {
               "admin"
             )
           }
-          className={`min-h-9 rounded-lg text-xs font-bold transition ${
-            mode === "admin"
+          disabled={
+            submitting
+          }
+          aria-pressed={
+            mode ===
+            "admin"
+          }
+          className={`min-h-9 rounded-lg text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            mode ===
+            "admin"
               ? "bg-secondary text-white shadow-sm"
               : "text-slate-500 hover:text-slate-300"
           }`}
@@ -148,7 +219,14 @@ export default function AdminLoginForm() {
               "watchmen"
             )
           }
-          className={`min-h-9 rounded-lg text-xs font-bold transition ${
+          disabled={
+            submitting
+          }
+          aria-pressed={
+            mode ===
+            "watchmen"
+          }
+          className={`min-h-9 rounded-lg text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
             mode ===
             "watchmen"
               ? "bg-secondary text-white shadow-sm"
@@ -159,16 +237,24 @@ export default function AdminLoginForm() {
         </button>
       </div>
 
+      {/* =============================
+          INTRODUCTION
+      ============================= */}
+
       <div className="mb-7">
         <div className="flex size-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
           {mode ===
           "watchmen" ? (
             <ShieldCheck
-              size={18}
+              size={
+                18
+              }
             />
           ) : (
             <LockKeyhole
-              size={18}
+              size={
+                18
+              }
             />
           )}
         </div>
@@ -188,7 +274,14 @@ export default function AdminLoginForm() {
         </p>
       </div>
 
-      <label className="mb-2 block text-xs font-bold text-slate-300">
+      {/* =============================
+          PIN
+      ============================= */}
+
+      <label
+        htmlFor="admin-pin"
+        className="mb-2 block text-xs font-bold text-slate-300"
+      >
         {mode ===
         "watchmen"
           ? "Watchmen PIN"
@@ -197,34 +290,54 @@ export default function AdminLoginForm() {
 
       <div className="relative">
         <input
+          id="admin-pin"
           type={
             showPin
               ? "text"
               : "password"
           }
-          value={pin}
+          value={
+            pin
+          }
           onChange={(
             event
-          ) =>
+          ) => {
             setPin(
               event.target
                 .value
-            )
+            );
+
+            if (
+              message
+            ) {
+              setMessage(
+                ""
+              );
+            }
+          }}
+          disabled={
+            submitting
           }
           autoComplete="current-password"
+          autoFocus
           placeholder="Enter PIN"
-          className="h-12 w-full rounded-xl border border-white/10 bg-primary px-4 pr-12 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
+          className="h-12 w-full rounded-xl border border-white/10 bg-primary px-4 pr-12 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         <button
           type="button"
           onClick={() =>
             setShowPin(
-              (current) =>
+              (
+                current
+              ) =>
                 !current
             )
           }
-          className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white"
+          disabled={
+            submitting
+          }
+          className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
           aria-label={
             showPin
               ? "Hide PIN"
@@ -233,21 +346,40 @@ export default function AdminLoginForm() {
         >
           {showPin ? (
             <EyeOff
-              size={15}
+              size={
+                15
+              }
             />
           ) : (
             <Eye
-              size={15}
+              size={
+                15
+              }
             />
           )}
         </button>
       </div>
 
+      {/* =============================
+          ERROR MESSAGE
+      ============================= */}
+
       {message && (
-        <p className="mt-3 text-xs font-medium text-red-400">
-          {message}
-        </p>
+        <div
+          role="alert"
+          className="mt-3 rounded-xl border border-red-500/20 bg-red-500/5 px-3.5 py-3"
+        >
+          <p className="text-xs font-medium leading-5 text-red-400">
+            {
+              message
+            }
+          </p>
+        </div>
       )}
+
+      {/* =============================
+          SUBMIT
+      ============================= */}
 
       <button
         type="submit"
@@ -257,14 +389,27 @@ export default function AdminLoginForm() {
         }
         className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-xs font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {submitting
-          ? "Verifying..."
-          : "Continue"}
+        {submitting ? (
+          <>
+            <Loader2
+              size={
+                14
+              }
+              className="animate-spin"
+            />
 
-        {!submitting && (
-          <ArrowRight
-            size={15}
-          />
+            Verifying...
+          </>
+        ) : (
+          <>
+            Continue
+
+            <ArrowRight
+              size={
+                15
+              }
+            />
+          </>
         )}
       </button>
 

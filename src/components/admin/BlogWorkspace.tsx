@@ -19,16 +19,11 @@ import {
   useEffect,
   useMemo,
   useState,
-  type FormEvent,
 } from "react";
 
-import RichTextEditor from "@/components/editor/RichTextEditor";
-import FormattedContent from "@/components/editor/FormattedContent";
-
-import {
-  CONTENT_LIMITS,
-  validateTitle,
-} from "@/lib/validation/content";
+import BlogEditor, {
+  type BlogEditorPost,
+} from "@/components/admin/BlogEditor";
 
 import type {
   AdminRole,
@@ -38,35 +33,22 @@ type Props = {
   role: AdminRole;
 };
 
-type BlogAdminPost = {
-  id: string;
+type BlogAdminPost =
+  BlogEditorPost & {
+    slug: string;
 
-  title: string;
+    likes: number;
 
-  slug: string;
+    views: number;
 
-  category: string;
+    createdAt?:
+      | string
+      | null;
 
-  author: string;
+    commentCount: number;
 
-  content: string;
-
-  likes: number;
-
-  views: number;
-
-  createdAt?:
-    | string
-    | null;
-
-  commentCount: number;
-
-  approvedComments: number;
-
-  editCode?:
-    | string
-    | null;
-};
+    approvedComments: number;
+  };
 
 type BlogResult = {
   success: boolean;
@@ -79,10 +61,31 @@ type BlogResult = {
 
   counts: {
     posts: number;
+
     comments: number;
+
     views: number;
   };
 };
+
+function formatDate(
+  value: string
+) {
+  try {
+    return new Intl.DateTimeFormat(
+      "en",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    ).format(
+      new Date(value)
+    );
+  } catch {
+    return "";
+  }
+}
 
 export default function BlogWorkspace({
   role,
@@ -98,52 +101,64 @@ export default function BlogWorkspace({
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     query,
     setQuery,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     category,
     setCategory,
-  ] = useState("All");
+  ] =
+    useState("All");
 
   const [
     editorPost,
     setEditorPost,
   ] =
     useState<
-      BlogAdminPost | "new" | null
+      BlogAdminPost |
+      "new" |
+      null
     >(null);
 
   const [
     deleteTarget,
     setDeleteTarget,
   ] =
-    useState<BlogAdminPost | null>(
-      null
-    );
+    useState<
+      BlogAdminPost | null
+    >(null);
 
   const [
     deletionPin,
     setDeletionPin,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     deleting,
     setDeleting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     message,
     setMessage,
-  ] = useState("");
+  ] =
+    useState("");
 
+  /*
+   * LOAD BLOG DATA
+   */
   const load =
     useCallback(async () => {
       setLoading(true);
+
       setMessage("");
 
       try {
@@ -159,17 +174,26 @@ export default function BlogWorkspace({
         const result =
           await response.json();
 
-        if (!response.ok) {
-          throw new Error();
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.message ||
+              "Unable to load blog."
+          );
         }
 
-        setData(result);
+        setData(
+          result
+        );
       } catch {
         setMessage(
           "Blog content could not be loaded."
         );
       } finally {
-        setLoading(false);
+        setLoading(
+          false
+        );
       }
     }, []);
 
@@ -177,13 +201,17 @@ export default function BlogWorkspace({
     load();
   }, [load]);
 
+  /*
+   * FILTER ARTICLES
+   */
   const filtered =
     useMemo(() => {
       let posts =
         data?.posts ?? [];
 
       if (
-        category !== "All"
+        category !==
+        "All"
       ) {
         posts =
           posts.filter(
@@ -198,7 +226,9 @@ export default function BlogWorkspace({
           .trim()
           .toLowerCase();
 
-      if (!search) {
+      if (
+        !search
+      ) {
         return posts;
       }
 
@@ -212,7 +242,9 @@ export default function BlogWorkspace({
           ]
             .join(" ")
             .toLowerCase()
-            .includes(search)
+            .includes(
+              search
+            )
       );
     }, [
       data,
@@ -220,6 +252,9 @@ export default function BlogWorkspace({
       query,
     ]);
 
+  /*
+   * DELETE ARTICLE
+   */
   const remove =
     async () => {
       if (
@@ -229,7 +264,10 @@ export default function BlogWorkspace({
         return;
       }
 
-      setDeleting(true);
+      setDeleting(
+        true
+      );
+
       setMessage("");
 
       try {
@@ -257,9 +295,12 @@ export default function BlogWorkspace({
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
-            result.message
+            result.message ||
+              "Unable to delete article."
           );
         }
 
@@ -276,18 +317,49 @@ export default function BlogWorkspace({
         );
 
         await load();
-      } catch {
+      } catch (
+        error
+      ) {
         setMessage(
-          "Incorrect deletion password or the article could not be deleted."
+          error instanceof
+            Error &&
+            error.message
+            ? error.message
+            : "Incorrect deletion password or the article could not be deleted."
         );
       } finally {
-        setDeleting(false);
+        setDeleting(
+          false
+        );
       }
+    };
+
+  /*
+   * CLOSE DELETE MODAL
+   */
+  const closeDeleteModal =
+    () => {
+      if (
+        deleting
+      ) {
+        return;
+      }
+
+      setDeleteTarget(
+        null
+      );
+
+      setDeletionPin(
+        ""
+      );
     };
 
   return (
     <div>
-      {/* HEADER */}
+      {/* ===================================
+          HEADER
+      =================================== */}
+
       <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
@@ -305,14 +377,24 @@ export default function BlogWorkspace({
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={load}
-            className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
+            onClick={
+              load
+            }
+            disabled={
+              loading
+            }
+            className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw
               size={13}
+              className={
+                loading
+                  ? "animate-spin"
+                  : ""
+              }
             />
 
             Refresh
@@ -325,22 +407,30 @@ export default function BlogWorkspace({
                 "new"
               )
             }
-            className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary"
+            className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary transition hover:brightness-105"
           >
-            <Plus size={13} />
+            <Plus
+              size={
+                13
+              }
+            />
 
             New article
           </button>
         </div>
       </div>
 
-      {/* STATS */}
+      {/* ===================================
+          STATS
+      =================================== */}
+
       <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
         <BlogStat
           label="Articles"
           value={
             data?.counts
-              .posts ?? 0
+              .posts ??
+            0
           }
         />
 
@@ -348,7 +438,8 @@ export default function BlogWorkspace({
           label="Views"
           value={
             data?.counts
-              .views ?? 0
+              .views ??
+            0
           }
         />
 
@@ -356,43 +447,57 @@ export default function BlogWorkspace({
           label="Comments"
           value={
             data?.counts
-              .comments ?? 0
+              .comments ??
+            0
           }
         />
       </div>
 
-      {/* FILTER BAR */}
+      {/* ===================================
+          SEARCH + CATEGORY FILTER
+      =================================== */}
+
       <div className="mt-5 grid gap-3 md:grid-cols-[1fr_190px]">
         <div className="relative">
           <Search
-            size={15}
+            size={
+              15
+            }
             className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600"
           />
 
           <input
-            value={query}
+            value={
+              query
+            }
             onChange={(
               event
             ) =>
               setQuery(
-                event.target
+                event
+                  .target
                   .value
               )
             }
             placeholder="Search articles..."
-            className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
+            className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
           />
         </div>
 
         <select
-          value={category}
-          onChange={(event) =>
+          value={
+            category
+          }
+          onChange={(
+            event
+          ) =>
             setCategory(
-              event.target
+              event
+                .target
                 .value
             )
           }
-          className="h-11 rounded-xl border border-white/10 bg-secondary px-3 text-xs font-semibold text-slate-300 outline-none focus:border-accent/40"
+          className="h-11 rounded-xl border border-white/10 bg-secondary px-3 text-xs font-semibold text-slate-300 outline-none transition focus:border-accent/40"
         >
           <option value="All">
             All categories
@@ -402,33 +507,55 @@ export default function BlogWorkspace({
             data?.categories ??
             []
           ).map(
-            (item) => (
+            (
+              item
+            ) => (
               <option
-                key={item}
-                value={item}
+                key={
+                  item
+                }
+                value={
+                  item
+                }
               >
-                {item}
+                {
+                  item
+                }
               </option>
             )
           )}
         </select>
       </div>
 
+      {/* ===================================
+          MESSAGE
+      =================================== */}
+
       {message && (
         <div className="mt-4 rounded-xl border border-white/10 bg-secondary px-4 py-3 text-xs text-slate-300">
-          {message}
+          {
+            message
+          }
         </div>
       )}
 
-      {/* LIST */}
+      {/* ===================================
+          LOADING
+      =================================== */}
+
       {loading ? (
         <div className="mt-5 space-y-3">
           {Array.from({
             length: 4,
           }).map(
-            (_, index) => (
+            (
+              _,
+              index
+            ) => (
               <div
-                key={index}
+                key={
+                  index
+                }
                 className="h-36 animate-pulse rounded-2xl border border-white/10 bg-secondary"
               />
             )
@@ -436,15 +563,29 @@ export default function BlogWorkspace({
         </div>
       ) : filtered.length ===
         0 ? (
+        /* =================================
+           EMPTY STATE
+        ================================= */
+
         <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-secondary py-14 text-center">
           <p className="text-xs font-bold text-slate-400">
-            No articles found.
+            {query ||
+            category !==
+              "All"
+              ? "No articles match your filters."
+              : "No articles found."}
           </p>
         </div>
       ) : (
+        /* =================================
+           ARTICLE LIST
+        ================================= */
+
         <div className="mt-5 space-y-3">
           {filtered.map(
-            (post) => (
+            (
+              post
+            ) => (
               <article
                 key={
                   post.id
@@ -452,38 +593,37 @@ export default function BlogWorkspace({
                 className="rounded-2xl border border-white/10 bg-secondary p-4 transition hover:border-white/15 sm:p-5"
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
+                  {/* ARTICLE INFO */}
+
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-accent">
                         {
                           post.category
                         }
                       </span>
-
-                      {role ===
-                        "main" &&
-                        post.editCode && (
-                          <span className="rounded-md border border-white/10 bg-primary px-2 py-1 font-mono text-[9px] text-slate-500">
-                            Code:{" "}
-                            {
-                              post.editCode
-                            }
-                          </span>
-                        )}
                     </div>
 
                     <h2 className="mt-3 text-sm font-extrabold leading-6 text-white sm:text-base">
-                      {post.title}
+                      {
+                        post.title
+                      }
                     </h2>
 
                     <p className="mt-1 text-[10px] font-medium text-slate-500">
                       By{" "}
-                      {post.author}
+                      {
+                        post.author
+                      }
                     </p>
 
                     <p className="mt-3 line-clamp-2 max-w-3xl text-xs leading-6 text-slate-400">
-                      {post.content}
+                      {
+                        post.content
+                      }
                     </p>
+
+                    {/* ARTICLE STATS */}
 
                     <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[10px] font-semibold text-slate-600">
                       <span className="inline-flex items-center gap-1">
@@ -527,25 +667,19 @@ export default function BlogWorkspace({
 
                       {post.createdAt && (
                         <span>
-                          {new Intl.DateTimeFormat(
-                            "en",
-                            {
-                              day: "numeric",
-                              month:
-                                "short",
-                              year: "numeric",
-                            }
-                          ).format(
-                            new Date(
-                              post.createdAt
-                            )
+                          {formatDate(
+                            post.createdAt
                           )}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 gap-2">
+                  {/* =================================
+                      ACTIONS
+                  ================================= */}
+
+                  <div className="flex shrink-0 flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() =>
@@ -556,31 +690,40 @@ export default function BlogWorkspace({
                       className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
                     >
                       <Edit3
-                        size={12}
+                        size={
+                          12
+                        }
                       />
 
                       Edit
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeleteTarget(
-                          post
-                        );
+                    {/* DELETE ONLY FOR MAIN ADMIN */}
 
-                        setDeletionPin(
-                          ""
-                        );
-                      }}
-                      className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10"
-                    >
-                      <Trash2
-                        size={12}
-                      />
+                    {role ===
+                      "main" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteTarget(
+                            post
+                          );
 
-                      Delete
-                    </button>
+                          setDeletionPin(
+                            ""
+                          );
+                        }}
+                        className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10"
+                      >
+                        <Trash2
+                          size={
+                            12
+                          }
+                        />
+
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>
@@ -589,9 +732,12 @@ export default function BlogWorkspace({
         </div>
       )}
 
-      {/* EDITOR */}
+      {/* ===================================
+          ARTICLE EDITOR
+      =================================== */}
+
       {editorPost && (
-        <BlogEditorModal
+        <BlogEditor
           post={
             editorPost ===
             "new"
@@ -600,7 +746,9 @@ export default function BlogWorkspace({
           }
           categories={
             data?.categories ??
-            ["Teaching"]
+            [
+              "Teaching",
+            ]
           }
           onClose={() =>
             setEditorPost(
@@ -614,577 +762,176 @@ export default function BlogWorkspace({
               null
             );
 
-            setMessage(text);
+            setMessage(
+              text
+            );
 
             await load();
           }}
         />
       )}
 
-      {/* DELETE */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
-                <LockKeyhole
-                  size={16}
-                />
+      {/* ===================================
+          DELETE MODAL
+      =================================== */}
+
+      {deleteTarget &&
+        role ===
+          "main" && (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-blog-title"
+          >
+            <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
+              {/* MODAL TOP */}
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                  <LockKeyhole
+                    size={
+                      16
+                    }
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    closeDeleteModal
+                  }
+                  disabled={
+                    deleting
+                  }
+                  aria-label="Close delete confirmation"
+                  className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
+                >
+                  <X
+                    size={
+                      15
+                    }
+                  />
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
-                  )
-                }
-                className="flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-white/5 hover:text-white"
+              {/* TITLE */}
+
+              <h2
+                id="delete-blog-title"
+                className="mt-5 text-lg font-extrabold text-white"
               >
-                <X size={15} />
-              </button>
-            </div>
+                Delete article?
+              </h2>
 
-            <h2 className="mt-5 text-lg font-extrabold text-white">
-              Delete article?
-            </h2>
+              {/* DESCRIPTION */}
 
-            <p className="mt-2 line-clamp-2 text-xs leading-6 text-slate-400">
-              {deleteTarget.title}
-            </p>
-
-            <input
-              type="password"
-              value={
-                deletionPin
-              }
-              onChange={(
-                event
-              ) =>
-                setDeletionPin(
-                  event.target
-                    .value
-                )
-              }
-              placeholder="Deletion password"
-              className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-red-400/50"
-            />
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
-                  )
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                This permanently
+                removes “
+                {
+                  deleteTarget.title
                 }
-                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
-              >
-                Cancel
-              </button>
+                ”.
+              </p>
 
-              <button
-                type="button"
-                onClick={remove}
-                disabled={
-                  deleting ||
-                  !deletionPin.trim()
-                }
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white disabled:opacity-40"
-              >
-                {deleting && (
-                  <Loader2
-                    size={13}
-                    className="animate-spin"
-                  />
-                )}
+              <p className="mt-2 text-[10px] leading-5 text-slate-600">
+                Enter the Witness
+                Path deletion
+                password to
+                continue.
+              </p>
 
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BlogEditorModal({
-  post,
-  categories,
-  onClose,
-  onSaved,
-}: {
-  post:
-    | BlogAdminPost
-    | null;
-
-  categories: string[];
-
-  onClose: () => void;
-
-  onSaved: (
-    message: string
-  ) => Promise<void> | void;
-}) {
-  const editing =
-    Boolean(post);
-
-  const [
-    title,
-    setTitle,
-  ] = useState(
-    post?.title ?? ""
-  );
-
-  const [
-    category,
-    setCategory,
-  ] = useState(
-    post?.category ??
-      "Teaching"
-  );
-
-  const [
-    customCategory,
-    setCustomCategory,
-  ] = useState("");
-
-  const [
-    author,
-    setAuthor,
-  ] = useState(
-    post?.author ?? ""
-  );
-
-  const [
-    content,
-    setContent,
-  ] = useState(
-    post?.content ?? ""
-  );
-
-  const [
-    editCode,
-    setEditCode,
-  ] = useState(
-    post?.editCode ?? ""
-  );
-
-  const [
-    submitting,
-    setSubmitting,
-  ] = useState(false);
-
-  const [
-    error,
-    setError,
-  ] = useState("");
-
-  const finalCategory =
-    category === "__custom"
-      ? customCategory.trim()
-      : category;
-
-  const submit = async (
-    event:
-      FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
-
-    const titleError =
-      validateTitle(
-        title
-      );
-
-    if (titleError) {
-      setError(
-        titleError
-      );
-
-      return;
-    }
-
-    if (!content.trim()) {
-      setError(
-        "Article content is required."
-      );
-
-      return;
-    }
-
-    if (
-      editing &&
-      !editCode.trim()
-    ) {
-      setError(
-        "Enter the unique edit code."
-      );
-
-      return;
-    }
-
-    setSubmitting(true);
-    setError("");
-
-    try {
-      const response =
-        await fetch(
-          editing
-            ? `/api/admin/blog/${post?.id}`
-            : "/api/admin/blog",
-          {
-            method:
-              editing
-                ? "PATCH"
-                : "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                title,
-
-                category:
-                  finalCategory ||
-                  "Teaching",
-
-                author,
-
-                content,
-
-                editCode:
-                  editing
-                    ? editCode
-                    : undefined,
-              }),
-          }
-        );
-
-      const result =
-        await response.json();
-
-      if (!response.ok) {
-        setError(
-          result.message ||
-            "Unable to save article."
-        );
-
-        return;
-      }
-
-      await onSaved(
-        editing
-          ? "Article updated."
-          : "Article published."
-      );
-    } catch {
-      setError(
-        "Unable to save article."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[85] overflow-y-auto bg-black/75 px-4 py-6 backdrop-blur-sm">
-      <div className="mx-auto w-full max-w-[920px] overflow-hidden rounded-2xl border border-white/10 bg-secondary shadow-2xl">
-        {/* HEADER */}
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
-          <div>
-            <span className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-accent">
-              Publishing
-            </span>
-
-            <h2 className="mt-2 text-lg font-extrabold text-white">
-              {editing
-                ? "Edit article"
-                : "Create article"}
-            </h2>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-white/5 hover:text-white"
-          >
-            <X size={15} />
-          </button>
-        </div>
-
-        <form
-          onSubmit={submit}
-          className="p-5"
-        >
-          <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
-            {/* EDITOR SIDE */}
-            <div>
-              <label className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-300">
-                <span>
-                  Article title
-                </span>
-
-                <span
-                  className={`text-[10px] ${
-                    title.length >
-                    CONTENT_LIMITS.title
-                      ? "text-red-400"
-                      : "text-slate-600"
-                  }`}
-                >
-                  {title.length}/
-                  {
-                    CONTENT_LIMITS.title
-                  }
-                </span>
-              </label>
+              {/* PASSWORD */}
 
               <input
-                value={title}
-                maxLength={
-                  CONTENT_LIMITS.title
+                type="password"
+                value={
+                  deletionPin
                 }
                 onChange={(
                   event
                 ) =>
-                  setTitle(
-                    event.target
+                  setDeletionPin(
+                    event
+                      .target
                       .value
                   )
                 }
-                placeholder="Article title"
-                className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
+                onKeyDown={(
+                  event
+                ) => {
+                  if (
+                    event.key ===
+                      "Enter" &&
+                    deletionPin.trim() &&
+                    !deleting
+                  ) {
+                    remove();
+                  }
+                }}
+                autoComplete="current-password"
+                placeholder="Deletion password"
+                className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-red-400/50 focus:ring-4 focus:ring-red-500/10"
               />
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-xs font-bold text-slate-300">
-                    Category
-                  </label>
+              {/* ACTIONS */}
 
-                  <select
-                    value={
-                      category
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setCategory(
-                        event.target
-                          .value
-                      )
-                    }
-                    className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3 text-xs text-white outline-none focus:border-accent/50"
-                  >
-                    {Array.from(
-                      new Set([
-                        "Teaching",
-                        ...categories,
-                      ])
-                    ).map(
-                      (item) => (
-                        <option
-                          key={
-                            item
-                          }
-                          value={
-                            item
-                          }
-                        >
-                          {item}
-                        </option>
-                      )
-                    )}
-
-                    <option value="__custom">
-                      + New category
-                    </option>
-                  </select>
-
-                  {category ===
-                    "__custom" && (
-                    <input
-                      value={
-                        customCategory
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCustomCategory(
-                          event
-                            .target
-                            .value
-                        )
-                      }
-                      placeholder="Category name"
-                      className="mt-2 h-10 w-full rounded-xl border border-white/10 bg-primary px-3 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-xs font-bold text-slate-300">
-                    Author
-                  </label>
-
-                  <input
-                    value={author}
-                    onChange={(
-                      event
-                    ) =>
-                      setAuthor(
-                        event.target
-                          .value
-                      )
-                    }
-                    placeholder="The Witness Team"
-                    className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-5">
-                <RichTextEditor
-                  label="Article content"
-                  value={content}
-                  onChange={
-                    setContent
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={
+                    closeDeleteModal
                   }
-                  rows={16}
-                  placeholder="Write the teaching..."
-                />
-              </div>
+                  disabled={
+                    deleting
+                  }
+                  className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 transition hover:text-white disabled:opacity-40"
+                >
+                  Cancel
+                </button>
 
-              {editing && (
-                <div className="mt-5">
-                  <label className="mb-2 block text-xs font-bold text-slate-300">
-                    Unique edit code
-                  </label>
-
-                  <div className="relative">
-                    <LockKeyhole
-                      size={14}
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600"
-                    />
-
-                    <input
-                      type="password"
-                      value={
-                        editCode
+                <button
+                  type="button"
+                  onClick={
+                    remove
+                  }
+                  disabled={
+                    deleting ||
+                    !deletionPin.trim()
+                  }
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {deleting && (
+                    <Loader2
+                      size={
+                        13
                       }
-                      onChange={(
-                        event
-                      ) =>
-                        setEditCode(
-                          event.target
-                            .value
-                        )
-                      }
-                      placeholder="Enter edit code"
-                      className="h-11 w-full rounded-xl border border-white/10 bg-primary pl-10 pr-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
+                      className="animate-spin"
                     />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* PREVIEW */}
-            <aside className="lg:sticky lg:top-5 lg:self-start">
-              <p className="mb-2 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-600">
-                Live preview
-              </p>
-
-              <div className="rounded-2xl border border-white/10 bg-primary p-4">
-                <span className="inline-block rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[8px] font-extrabold uppercase tracking-[0.12em] text-accent">
-                  {finalCategory ||
-                    "Teaching"}
-                </span>
-
-                <h3 className="mt-3 text-lg font-extrabold leading-snug text-white">
-                  {title ||
-                    "Your article title"}
-                </h3>
-
-                <p className="mt-2 text-[10px] text-slate-600">
-                  By{" "}
-                  {author.trim() ||
-                    "The Witness Team"}
-                </p>
-
-                <div className="mt-5 max-h-[420px] overflow-y-auto font-serif text-sm text-slate-300">
-                  {content.trim() ? (
-                    <FormattedContent
-                      content={
-                        content
-                      }
-                    />
-                  ) : (
-                    <p className="text-xs leading-6 text-slate-600">
-                      Start writing
-                      to preview the
-                      article here.
-                    </p>
                   )}
-                </div>
+
+                  {deleting
+                    ? "Deleting..."
+                    : "Delete permanently"}
+                </button>
               </div>
-            </aside>
+            </div>
           </div>
-
-          {error && (
-            <p className="mt-5 text-xs font-medium text-red-400">
-              {error}
-            </p>
-          )}
-
-          <div className="mt-6 flex flex-col-reverse gap-2 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              disabled={
-                submitting ||
-                !title.trim() ||
-                !content.trim() ||
-                (editing &&
-                  !editCode.trim())
-              }
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-xs font-extrabold text-primary disabled:opacity-40"
-            >
-              {submitting && (
-                <Loader2
-                  size={13}
-                  className="animate-spin"
-                />
-              )}
-
-              {submitting
-                ? "Saving..."
-                : editing
-                  ? "Save changes"
-                  : "Publish article"}
-            </button>
-          </div>
-        </form>
-      </div>
+        )}
     </div>
   );
 }
 
+/*
+ * BLOG STAT CARD
+ */
 function BlogStat({
   label,
   value,
 }: {
   label: string;
+
   value: number;
 }) {
   return (
@@ -1192,11 +939,15 @@ function BlogStat({
       <p className="text-lg font-extrabold text-white sm:text-xl">
         {new Intl.NumberFormat(
           "en"
-        ).format(value)}
+        ).format(
+          value
+        )}
       </p>
 
       <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.1em] text-slate-600 sm:text-[10px]">
-        {label}
+        {
+          label
+        }
       </p>
     </div>
   );

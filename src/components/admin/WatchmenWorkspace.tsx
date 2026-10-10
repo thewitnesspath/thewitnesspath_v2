@@ -53,15 +53,37 @@ type Assignment = {
   items: AssignmentItem[];
 };
 
+const VALID_ASSIGNMENT_TYPES:
+  AssignmentType[] = [
+    "Guidance Answer",
+    "Prayer Burden",
+    "Blog Post",
+    "Testimony",
+  ];
+
+function isAssignmentType(
+  value: unknown
+): value is AssignmentType {
+  return (
+    typeof value ===
+      "string" &&
+    VALID_ASSIGNMENT_TYPES.includes(
+      value as AssignmentType
+    )
+  );
+}
+
 function todayStorageKey() {
   /*
    * Preserve the legacy UTC
-   * daily key behavior.
+   * daily storage key.
    */
   const today =
     new Date()
       .toISOString()
-      .split("T")[0];
+      .split(
+        "T"
+      )[0];
 
   return `watchmen_assignments_${today}`;
 }
@@ -70,101 +92,163 @@ function normalizeStoredAssignments(
   value: unknown
 ): Assignment[] {
   if (
-    !Array.isArray(value)
+    !Array.isArray(
+      value
+    )
   ) {
     return [];
   }
 
-  return value
-    .map(
-      (
-        assignment: any
-      ): Assignment | null => {
+  const normalized:
+    Assignment[] = [];
+
+  for (
+    const rawAssignment
+    of value
+  ) {
+    if (
+      !rawAssignment ||
+      typeof rawAssignment !==
+        "object"
+    ) {
+      continue;
+    }
+
+    const assignment =
+      rawAssignment as {
+        warriorNum?: unknown;
+        items?: unknown;
+      };
+
+    if (
+      typeof assignment
+        .warriorNum !==
+        "number" ||
+      !Number.isFinite(
+        assignment
+          .warriorNum
+      ) ||
+      assignment
+        .warriorNum <
+        1
+    ) {
+      continue;
+    }
+
+    const items:
+      AssignmentItem[] =
+      [];
+
+    if (
+      Array.isArray(
+        assignment.items
+      )
+    ) {
+      for (
+        const rawItem
+        of assignment.items
+      ) {
         if (
-          typeof assignment
-            ?.warriorNum !==
-          "number"
+          !rawItem ||
+          typeof rawItem !==
+            "object"
         ) {
-          return null;
+          continue;
         }
 
-        const items =
-          Array.isArray(
-            assignment.items
+        const item =
+          rawItem as {
+            type?: unknown;
+            text?: unknown;
+            data?: unknown;
+          };
+
+        if (
+          !isAssignmentType(
+            item.type
           )
-            ? assignment.items
-                .map(
-                  (
-                    item: any
-                  ):
-                    | AssignmentItem
-                    | null => {
-                    const type =
-                      item?.type as
-                        AssignmentType;
+        ) {
+          continue;
+        }
 
-                    if (!type) {
-                      return null;
-                    }
+        /*
+         * Current format:
+         * { type, text }
+         */
+        if (
+          typeof item.text ===
+            "string"
+        ) {
+          items.push({
+            type:
+              item.type,
 
-                    /*
-                     * New format.
-                     */
-                    if (
-                      typeof item.text ===
-                      "string"
-                    ) {
-                      return {
-                        type,
-                        text:
-                          item.text,
-                      };
-                    }
+            text:
+              item.text,
+          });
 
-                    /*
-                     * Legacy format:
-                     * { type, data }
-                     */
-                    const legacy =
-                      item.data;
+          continue;
+        }
 
-                    const text =
-                      legacy
-                        ?.question ||
-                      legacy?.Title ||
-                      legacy?.title ||
-                      legacy?.content;
+        /*
+         * Legacy format:
+         * { type, data }
+         */
+        if (
+          item.data &&
+          typeof item.data ===
+            "object"
+        ) {
+          const legacy =
+            item.data as {
+              question?: unknown;
+              Title?: unknown;
+              title?: unknown;
+              content?: unknown;
+            };
 
-                    if (
-                      typeof text !==
-                      "string"
-                    ) {
-                      return null;
-                    }
+          const candidates =
+            [
+              legacy.question,
+              legacy.Title,
+              legacy.title,
+              legacy.content,
+            ];
 
-                    return {
-                      type,
-                      text,
-                    };
-                  }
-                )
-                .filter(
-                  Boolean
-                ) as
-                AssignmentItem[]
-            : [];
+          const text =
+            candidates.find(
+              (
+                candidate
+              ) =>
+                typeof candidate ===
+                  "string"
+            );
 
-        return {
-          warriorNum:
-            assignment.warriorNum,
+          if (
+            typeof text ===
+            "string"
+          ) {
+            items.push({
+              type:
+                item.type,
 
-          items,
-        };
+              text,
+            });
+          }
+        }
       }
-    )
-    .filter(
-      Boolean
-    ) as Assignment[];
+    }
+
+    normalized.push({
+      warriorNum:
+        assignment
+          .warriorNum,
+
+      items,
+    });
+  }
+
+  return normalized;
 }
 
 export default function WatchmenWorkspace({
@@ -181,27 +265,32 @@ export default function WatchmenWorkspace({
   const [
     locked,
     setLocked,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     pin,
     setPin,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     unlocking,
     setUnlocking,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     warriorCount,
     setWarriorCount,
-  ] = useState("1");
+  ] =
+    useState("1");
 
   const [
     assignments,
@@ -214,61 +303,124 @@ export default function WatchmenWorkspace({
   const [
     message,
     setMessage,
-  ] = useState("");
+  ] =
+    useState("");
 
+  const [
+    hasLoadError,
+    setHasLoadError,
+  ] =
+    useState(false);
+
+  /*
+   * ================================
+   * LOAD POOLS
+   * ================================
+   */
   const loadPools =
-    useCallback(async () => {
-      setLoading(true);
-      setMessage("");
-
-      try {
-        const response =
-          await fetch(
-            "/api/admin/watchmen/pools",
-            {
-              cache:
-                "no-store",
-            }
-          );
-
-        const result =
-          await response.json();
-
-        if (
-          response.status ===
-          423
-        ) {
-          setLocked(true);
-          setPools(null);
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            result.message
-          );
-        }
-
-        setLocked(false);
-        setPools(
-          result.pools
+    useCallback(
+      async () => {
+        setLoading(
+          true
         );
-      } catch {
+
         setMessage(
-          "Prayer assignment sources could not be loaded."
+          ""
         );
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+
+        setHasLoadError(
+          false
+        );
+
+        try {
+          const response =
+            await fetch(
+              "/api/admin/watchmen/pools",
+              {
+                cache:
+                  "no-store",
+              }
+            );
+
+          const result =
+            await response.json();
+
+          /*
+           * Main Admin has not yet
+           * passed the secondary PIN.
+           */
+          if (
+            response.status ===
+            423
+          ) {
+            setLocked(
+              true
+            );
+
+            setPools(
+              null
+            );
+
+            return;
+          }
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result.message ||
+                "Prayer assignment sources could not be loaded."
+            );
+          }
+
+          setLocked(
+            false
+          );
+
+          setPools(
+            result.pools
+          );
+        } catch (
+          error
+        ) {
+          setLocked(
+            false
+          );
+
+          setPools(
+            null
+          );
+
+          setHasLoadError(
+            true
+          );
+
+          setMessage(
+            error instanceof
+              Error &&
+              error.message
+              ? error.message
+              : "Prayer assignment sources could not be loaded."
+          );
+        } finally {
+          setLoading(
+            false
+          );
+        }
+      },
+      []
+    );
 
   useEffect(() => {
     loadPools();
-  }, [loadPools]);
+  }, [
+    loadPools,
+  ]);
 
   /*
-   * Restore today's assignments
-   * exactly as the old portal did.
+   * ================================
+   * RESTORE TODAY'S ASSIGNMENTS
+   * ================================
    */
   useEffect(() => {
     if (
@@ -289,7 +441,12 @@ export default function WatchmenWorkspace({
 
     try {
       const parsed =
-        JSON.parse(saved);
+        JSON.parse(
+          saved
+        ) as {
+          warriorCount?: unknown;
+          assignments?: unknown;
+        };
 
       const restored =
         normalizeStoredAssignments(
@@ -301,20 +458,33 @@ export default function WatchmenWorkspace({
       );
 
       if (
-        parsed.warriorCount
+        typeof parsed
+          .warriorCount ===
+          "number" ||
+        typeof parsed
+          .warriorCount ===
+          "string"
       ) {
         setWarriorCount(
           String(
-            parsed.warriorCount
+            parsed
+              .warriorCount
           )
         );
       }
     } catch {
-      // Ignore malformed
-      // session data.
+      /*
+       * Ignore malformed legacy
+       * session data.
+       */
     }
   }, []);
 
+  /*
+   * ================================
+   * UNLOCK
+   * ================================
+   */
   const unlock =
     async (
       event:
@@ -322,12 +492,19 @@ export default function WatchmenWorkspace({
     ) => {
       event.preventDefault();
 
-      if (!pin.trim()) {
+      if (
+        !pin.trim()
+      ) {
         return;
       }
 
-      setUnlocking(true);
-      setMessage("");
+      setUnlocking(
+        true
+      );
+
+      setMessage(
+        ""
+      );
 
       try {
         const response =
@@ -344,7 +521,8 @@ export default function WatchmenWorkspace({
 
               body:
                 JSON.stringify({
-                  pin,
+                  pin:
+                    pin.trim(),
                 }),
             }
           );
@@ -352,7 +530,9 @@ export default function WatchmenWorkspace({
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           setMessage(
             result.message ||
               "Incorrect Watchmen PIN."
@@ -361,8 +541,13 @@ export default function WatchmenWorkspace({
           return;
         }
 
-        setPin("");
-        setLocked(false);
+        setPin(
+          ""
+        );
+
+        setLocked(
+          false
+        );
 
         await loadPools();
       } catch {
@@ -370,13 +555,22 @@ export default function WatchmenWorkspace({
           "Watchmen access could not be verified."
         );
       } finally {
-        setUnlocking(false);
+        setUnlocking(
+          false
+        );
       }
     };
 
+  /*
+   * ================================
+   * GENERATE ASSIGNMENTS
+   * ================================
+   */
   const generate =
     () => {
-      if (!pools) {
+      if (
+        !pools
+      ) {
         return;
       }
 
@@ -390,7 +584,8 @@ export default function WatchmenWorkspace({
         Number.isNaN(
           count
         ) ||
-        count < 1
+        count <
+          1
       ) {
         setMessage(
           "Enter a valid number of available prayer warriors."
@@ -399,15 +594,18 @@ export default function WatchmenWorkspace({
         return;
       }
 
-      setMessage("");
+      setMessage(
+        ""
+      );
 
-      /*
-       * Preserve the existing
-       * assignment algorithm.
-       */
       let next:
         Assignment[];
 
+      /*
+       * If the number is reduced,
+       * retain the first existing
+       * assignments.
+       */
       if (
         count <=
         assignments.length
@@ -418,6 +616,12 @@ export default function WatchmenWorkspace({
             count
           );
       } else {
+        /*
+         * Keep today's already
+         * generated assignments and
+         * generate only the additional
+         * warriors.
+         */
         next = [
           ...assignments,
         ];
@@ -432,14 +636,19 @@ export default function WatchmenWorkspace({
             AssignmentItem[] =
             [];
 
+          /*
+           * GUIDANCE
+           */
           if (
             pools.answers
-              .length > 0
+              .length >
+            0
           ) {
             const item =
               pools.answers[
                 i %
-                  pools.answers
+                  pools
+                    .answers
                     .length
               ];
 
@@ -452,14 +661,19 @@ export default function WatchmenWorkspace({
             });
           }
 
+          /*
+           * PRAYER BURDEN
+           */
           if (
             pools.burdens
-              .length > 0
+              .length >
+            0
           ) {
             const item =
               pools.burdens[
                 i %
-                  pools.burdens
+                  pools
+                    .burdens
                     .length
               ];
 
@@ -472,14 +686,19 @@ export default function WatchmenWorkspace({
             });
           }
 
+          /*
+           * BLOG
+           */
           if (
             pools.blogs
-              .length > 0
+              .length >
+            0
           ) {
             const item =
               pools.blogs[
                 i %
-                  pools.blogs
+                  pools
+                    .blogs
                     .length
               ];
 
@@ -493,8 +712,8 @@ export default function WatchmenWorkspace({
           }
 
           /*
-           * Testimonies remain the
-           * primary overflow pool.
+           * TESTIMONIES ARE THE
+           * PRIMARY FILL POOL.
            */
           while (
             items.length <
@@ -506,7 +725,8 @@ export default function WatchmenWorkspace({
           ) {
             const index =
               (
-                i * 4 +
+                i *
+                  4 +
                 items.length
               ) %
               pools
@@ -529,8 +749,9 @@ export default function WatchmenWorkspace({
           }
 
           /*
-           * Preserve the legacy
-           * fallback sequence.
+           * LEGACY FALLBACK:
+           * testimonies first,
+           * guidance second.
            */
           while (
             items.length <
@@ -559,11 +780,14 @@ export default function WatchmenWorkspace({
                   item.text,
               });
             } else if (
-              pools.answers
-                .length > 0
+              pools
+                .answers
+                .length >
+              0
             ) {
               const item =
-                pools.answers[
+                pools
+                  .answers[
                   items.length %
                     pools
                       .answers
@@ -595,26 +819,38 @@ export default function WatchmenWorkspace({
         next
       );
 
-      sessionStorage.setItem(
-        todayStorageKey(),
-        JSON.stringify({
-          warriorCount:
-            count,
+      if (
+        typeof window !==
+        "undefined"
+      ) {
+        sessionStorage.setItem(
+          todayStorageKey(),
 
-          assignments:
-            next,
-        })
-      );
+          JSON.stringify({
+            warriorCount:
+              count,
+
+            assignments:
+              next,
+          })
+        );
+      }
 
       setMessage(
         `${next.length} prayer ${
-          next.length === 1
+          next.length ===
+          1
             ? "assignment"
             : "assignments"
         } ready.`
       );
     };
 
+  /*
+   * ================================
+   * COPY ASSIGNMENT
+   * ================================
+   */
   const copyAssignment =
     async (
       assignment:
@@ -635,7 +871,9 @@ export default function WatchmenWorkspace({
       try {
         await navigator
           .clipboard
-          .writeText(text);
+          .writeText(
+            text
+          );
 
         setMessage(
           `Assignment copied for Warrior #${assignment.warriorNum}.`
@@ -648,15 +886,14 @@ export default function WatchmenWorkspace({
     };
 
   /*
-   * Main Admin must unlock the
-   * Watchmen module.
-   *
-   * A direct Watchmen login has
-   * already been verified.
+   * ================================
+   * MAIN ADMIN LOCK SCREEN
+   * ================================
    */
   if (
     locked &&
-    role === "main"
+    role ===
+      "main"
   ) {
     return (
       <div>
@@ -671,19 +908,23 @@ export default function WatchmenWorkspace({
 
           <p className="mt-2 max-w-xl text-xs leading-6 text-slate-500">
             This ministry workspace
-            keeps its existing
-            secondary PIN
-            protection.
+            requires its secondary
+            Watchmen PIN before Main
+            Admin access is granted.
           </p>
         </div>
 
         <form
-          onSubmit={unlock}
+          onSubmit={
+            unlock
+          }
           className="mt-8 max-w-[430px] rounded-2xl border border-white/10 bg-secondary p-5"
         >
           <div className="flex size-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
             <LockKeyhole
-              size={17}
+              size={
+                17
+              }
             />
           </div>
 
@@ -692,13 +933,15 @@ export default function WatchmenWorkspace({
           </h2>
 
           <p className="mt-2 text-xs leading-6 text-slate-500">
-            Enter the existing
-            Watchmen PIN to continue.
+            Enter the Watchmen PIN
+            to continue.
           </p>
 
           <input
             type="password"
-            value={pin}
+            value={
+              pin
+            }
             onChange={(
               event
             ) =>
@@ -707,13 +950,16 @@ export default function WatchmenWorkspace({
                   .value
               )
             }
+            autoComplete="off"
             placeholder="Watchmen PIN"
-            className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
+            className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
           />
 
           {message && (
             <p className="mt-3 text-xs text-red-400">
-              {message}
+              {
+                message
+              }
             </p>
           )}
 
@@ -723,16 +969,20 @@ export default function WatchmenWorkspace({
               unlocking ||
               !pin.trim()
             }
-            className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-xs font-extrabold text-primary disabled:opacity-40"
+            className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-xs font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {unlocking && (
               <Loader2
-                size={13}
+                size={
+                  13
+                }
                 className="animate-spin"
               />
             )}
 
-            Unlock workspace
+            {unlocking
+              ? "Unlocking..."
+              : "Unlock workspace"}
           </button>
         </form>
       </div>
@@ -742,6 +992,7 @@ export default function WatchmenWorkspace({
   return (
     <div>
       {/* HEADER */}
+
       <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
@@ -765,11 +1016,15 @@ export default function WatchmenWorkspace({
           onClick={
             loadPools
           }
-          disabled={loading}
+          disabled={
+            loading
+          }
           className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent disabled:opacity-40"
         >
           <RefreshCw
-            size={13}
+            size={
+              13
+            }
             className={
               loading
                 ? "animate-spin"
@@ -781,23 +1036,60 @@ export default function WatchmenWorkspace({
         </button>
       </div>
 
+      {/* INITIAL LOADING */}
+
       {loading &&
       !pools ? (
         <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {Array.from({
-            length: 4,
+            length:
+              4,
           }).map(
-            (_, index) => (
+            (
+              _,
+              index
+            ) => (
               <div
-                key={index}
+                key={
+                  index
+                }
                 className="h-24 animate-pulse rounded-2xl border border-white/10 bg-secondary"
               />
             )
           )}
         </div>
+      ) : hasLoadError &&
+        !pools ? (
+        /*
+         * LOAD ERROR
+         */
+        <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+          <p className="text-xs font-bold text-red-400">
+            {
+              message
+            }
+          </p>
+
+          <button
+            type="button"
+            onClick={
+              loadPools
+            }
+            className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3.5 text-[11px] font-bold text-slate-300 transition hover:border-accent/30 hover:text-accent"
+          >
+            <RefreshCw
+              size={
+                13
+              }
+            />
+
+            Try again
+          </button>
+        </div>
       ) : pools ? (
         <>
           {/* SOURCE COUNTS */}
+
           <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <SourceStat
               label="Guidance"
@@ -837,11 +1129,14 @@ export default function WatchmenWorkspace({
           </div>
 
           {/* GENERATOR */}
+
           <section className="mt-6 rounded-2xl border border-white/10 bg-secondary p-4 sm:p-5">
             <div className="flex items-start gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
                 <Users
-                  size={15}
+                  size={
+                    15
+                  }
                 />
               </div>
 
@@ -869,8 +1164,12 @@ export default function WatchmenWorkspace({
 
                 <input
                   type="number"
-                  min={1}
-                  step={1}
+                  min={
+                    1
+                  }
+                  step={
+                    1
+                  }
                   value={
                     warriorCount
                   }
@@ -878,11 +1177,12 @@ export default function WatchmenWorkspace({
                     event
                   ) =>
                     setWarriorCount(
-                      event.target
+                      event
+                        .target
                         .value
                     )
                   }
-                  className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm font-bold text-white outline-none focus:border-accent/50"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm font-bold text-white outline-none transition focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
                 />
               </div>
 
@@ -894,7 +1194,9 @@ export default function WatchmenWorkspace({
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-xs font-extrabold text-primary transition hover:brightness-105"
               >
                 <ShieldCheck
-                  size={14}
+                  size={
+                    14
+                  }
                 />
 
                 Generate assignments
@@ -902,18 +1204,25 @@ export default function WatchmenWorkspace({
             </div>
           </section>
 
+          {/* MESSAGE */}
+
           {message && (
             <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-secondary px-4 py-3 text-xs text-slate-300">
               <Check
-                size={13}
+                size={
+                  13
+                }
                 className="shrink-0 text-accent"
               />
 
-              {message}
+              {
+                message
+              }
             </div>
           )}
 
           {/* ASSIGNMENTS */}
+
           {assignments.length >
           0 ? (
             <div className="mt-6 grid gap-3 xl:grid-cols-2">
@@ -923,7 +1232,8 @@ export default function WatchmenWorkspace({
                 ) => (
                   <article
                     key={
-                      assignment.warriorNum
+                      assignment
+                        .warriorNum
                     }
                     className="rounded-2xl border border-white/10 bg-secondary p-4 sm:p-5"
                   >
@@ -936,7 +1246,8 @@ export default function WatchmenWorkspace({
                         <h2 className="mt-1 text-sm font-extrabold text-white">
                           Warrior #
                           {
-                            assignment.warriorNum
+                            assignment
+                              .warriorNum
                           }
                         </h2>
                       </div>
@@ -951,7 +1262,9 @@ export default function WatchmenWorkspace({
                         className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-[10px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
                       >
                         <Clipboard
-                          size={12}
+                          size={
+                            12
+                          }
                         />
 
                         Copy
@@ -970,8 +1283,10 @@ export default function WatchmenWorkspace({
                           >
                             <div className="flex items-start gap-3">
                               <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-[9px] font-extrabold text-accent">
-                                {index +
-                                  1}
+                                {
+                                  index +
+                                  1
+                                }
                               </span>
 
                               <div className="min-w-0">
@@ -981,7 +1296,7 @@ export default function WatchmenWorkspace({
                                   }
                                 </span>
 
-                                <p className="mt-1 text-xs font-medium leading-5 text-slate-300">
+                                <p className="mt-1 whitespace-pre-wrap break-words text-xs font-medium leading-5 text-slate-300">
                                   {
                                     item.text
                                   }
@@ -999,7 +1314,9 @@ export default function WatchmenWorkspace({
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-secondary py-14 text-center">
               <ShieldCheck
-                size={20}
+                size={
+                  20
+                }
                 className="mx-auto text-slate-700"
               />
 
@@ -1025,11 +1342,17 @@ function SourceStat({
   return (
     <div className="rounded-2xl border border-white/10 bg-secondary p-4">
       <p className="text-xl font-extrabold tracking-[-0.03em] text-white">
-        {value}
+        {new Intl.NumberFormat(
+          "en"
+        ).format(
+          value
+        )}
       </p>
 
       <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-600">
-        {label}
+        {
+          label
+        }
       </p>
     </div>
   );

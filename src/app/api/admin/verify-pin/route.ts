@@ -20,6 +20,10 @@ import {
 export const runtime =
   "nodejs";
 
+type LoginMode =
+  | "admin"
+  | "watchmen";
+
 export async function POST(
   request: Request
 ) {
@@ -33,7 +37,8 @@ export async function POST(
         ? body.pin.trim()
         : "";
 
-    const mode =
+    const mode:
+      LoginMode =
       body.mode ===
       "watchmen"
         ? "watchmen"
@@ -41,7 +46,8 @@ export async function POST(
 
     if (
       !pin ||
-      pin.length > 100
+      pin.length >
+        100
     ) {
       return NextResponse.json(
         {
@@ -61,10 +67,13 @@ export async function POST(
       null;
 
     /*
+     * ================================
      * WATCHMEN LOGIN
+     * ================================
      */
     if (
-      mode === "watchmen"
+      mode ===
+      "watchmen"
     ) {
       const {
         data,
@@ -73,11 +82,14 @@ export async function POST(
         await supabaseAdmin.rpc(
           "verify_watchmen_pin",
           {
-            input_pin: pin,
+            input_pin:
+              pin,
           }
         );
 
-      if (error) {
+      if (
+        error
+      ) {
         console.error(
           "Watchmen verification error:",
           error.message
@@ -96,7 +108,9 @@ export async function POST(
         );
       }
 
-      if (!data) {
+      if (
+        data !== true
+      ) {
         return NextResponse.json(
           {
             success: false,
@@ -110,10 +124,13 @@ export async function POST(
         );
       }
 
-      role = "watchmen";
+      role =
+        "watchmen";
     } else {
       /*
+       * ================================
        * ADMIN LOGIN
+       * ================================
        */
       const {
         data,
@@ -122,11 +139,14 @@ export async function POST(
         await supabaseAdmin.rpc(
           "verify_admin_pin",
           {
-            input_pin: pin,
+            input_pin:
+              pin,
           }
         );
 
-      if (error) {
+      if (
+        error
+      ) {
         console.error(
           "Admin verification error:",
           error.message
@@ -145,7 +165,9 @@ export async function POST(
         );
       }
 
-      if (!data) {
+      if (
+        !data
+      ) {
         return NextResponse.json(
           {
             success: false,
@@ -163,20 +185,34 @@ export async function POST(
         normalizeAdminRole(
           data
         );
-    }
 
-    if (!role) {
-      return NextResponse.json(
-        {
-          success: false,
+      /*
+       * A valid PIN should always
+       * resolve to a recognised role.
+       *
+       * Do not silently promote an
+       * unknown value to Main Admin.
+       */
+      if (
+        !role
+      ) {
+        console.error(
+          "verify_admin_pin returned an unrecognised role:",
+          data
+        );
 
-          message:
-            "This internal role is not recognised.",
-        },
-        {
-          status: 403,
-        }
-      );
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "This internal role is not recognised.",
+          },
+          {
+            status: 403,
+          }
+        );
+      }
     }
 
     const token =
@@ -186,7 +222,9 @@ export async function POST(
 
     const response =
       NextResponse.json({
-        success: true,
+        success:
+          true,
+
         role,
       });
 
@@ -194,16 +232,19 @@ export async function POST(
       ADMIN_SESSION_COOKIE,
       token,
       {
-        httpOnly: true,
+        httpOnly:
+          true,
 
-        sameSite: "lax",
+        sameSite:
+          "lax",
 
         secure:
           process.env
             .NODE_ENV ===
           "production",
 
-        path: "/",
+        path:
+          "/",
 
         maxAge:
           ADMIN_SESSION_MAX_AGE,
@@ -211,17 +252,24 @@ export async function POST(
     );
 
     return response;
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Admin sign-in error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
 
         message:
-          "Something went wrong.",
+          "Something went wrong while signing in.",
       },
       {
         status: 500,
       }
     );
   }
-}
+} 

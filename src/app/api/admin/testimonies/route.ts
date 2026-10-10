@@ -65,6 +65,7 @@ export async function GET(
           is_approved,
           views,
           created_at,
+          whatsapp_notified_at,
           Comments(id)
         `
       )
@@ -102,7 +103,9 @@ export async function GET(
       ),
   ]);
 
-  if (itemsResult.error) {
+  if (
+    itemsResult.error
+  ) {
     console.error(
       "Unable to load admin testimonies:",
       itemsResult.error.message
@@ -111,6 +114,7 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
+
         message:
           "Testimonies could not be loaded.",
       },

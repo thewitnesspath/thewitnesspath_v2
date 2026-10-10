@@ -246,7 +246,7 @@ export default function AdminShell({
       {/* BRAND */}
       <div className="flex h-[72px] items-center border-b border-white/10 px-5">
         <img
-          src="/logo.png"
+          src="/witness-icon.jpg"
           alt="The Witness Path"
           className="h-8 w-auto object-contain"
         />

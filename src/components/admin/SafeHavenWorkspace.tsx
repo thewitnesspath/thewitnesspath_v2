@@ -55,7 +55,9 @@ type GuidanceResult = {
 
   counts: {
     unanswered: number;
+
     published: number;
+
     questions: number;
   };
 };
@@ -67,6 +69,7 @@ type EditorState = {
     | "edit";
 
   question: string;
+
   category: string;
 
   perspective?:
@@ -83,6 +86,25 @@ type DeleteTarget = {
   label: string;
 };
 
+function formatDate(
+  value: string
+) {
+  try {
+    return new Intl.DateTimeFormat(
+      "en",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    ).format(
+      new Date(value)
+    );
+  } catch {
+    return "";
+  }
+}
+
 export default function SafeHavenWorkspace({
   role,
 }: Props) {
@@ -97,7 +119,8 @@ export default function SafeHavenWorkspace({
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     view,
@@ -110,12 +133,14 @@ export default function SafeHavenWorkspace({
   const [
     query,
     setQuery,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     message,
     setMessage,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     expandedGroup,
@@ -144,16 +169,24 @@ export default function SafeHavenWorkspace({
   const [
     deletionPin,
     setDeletionPin,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     deleting,
     setDeleting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
+  /*
+   * LOAD DATA
+   */
   const load =
     useCallback(async () => {
-      setLoading(true);
+      setLoading(
+        true
+      );
+
       setMessage("");
 
       try {
@@ -169,17 +202,26 @@ export default function SafeHavenWorkspace({
         const result =
           await response.json();
 
-        if (!response.ok) {
-          throw new Error();
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.message ||
+              "Unable to load Safe Haven."
+          );
         }
 
-        setData(result);
+        setData(
+          result
+        );
       } catch {
         setMessage(
           "Safe Haven data could not be loaded."
         );
       } finally {
-        setLoading(false);
+        setLoading(
+          false
+        );
       }
     }, []);
 
@@ -187,6 +229,9 @@ export default function SafeHavenWorkspace({
     load();
   }, [load]);
 
+  /*
+   * SEARCH QUEUE
+   */
   const filteredQuestions =
     useMemo(() => {
       const items =
@@ -198,110 +243,141 @@ export default function SafeHavenWorkspace({
           .trim()
           .toLowerCase();
 
-      if (!search) {
+      if (
+        !search
+      ) {
         return items;
       }
 
       return items.filter(
-        (item) =>
+        (
+          item
+        ) =>
           [
             item.category,
             item.question,
           ]
             .join(" ")
             .toLowerCase()
-            .includes(search)
+            .includes(
+              search
+            )
       );
     }, [
       data,
       query,
     ]);
 
+  /*
+   * SEARCH PUBLISHED
+   */
   const filteredGroups =
     useMemo(() => {
       const items =
-        data?.groups ?? [];
+        data?.groups ??
+        [];
 
       const search =
         query
           .trim()
           .toLowerCase();
 
-      if (!search) {
+      if (
+        !search
+      ) {
         return items;
       }
 
       return items.filter(
-        (group) =>
+        (
+          group
+        ) =>
           [
             group.category,
             group.question,
 
-            ...group.perspectives.map(
-              (item) =>
-                `${item.author} ${item.answer}`
-            ),
+            ...group
+              .perspectives
+              .map(
+                (
+                  item
+                ) =>
+                  `${item.author} ${item.answer}`
+              ),
           ]
             .join(" ")
             .toLowerCase()
-            .includes(search)
+            .includes(
+              search
+            )
       );
     }, [
       data,
       query,
     ]);
 
-  const openQuestion =
-    (
+  /*
+   * ANSWER QUESTION
+   */
+  const openQuestion = (
+    question:
+      GuidanceQuestion
+  ) => {
+    setEditor({
+      mode:
+        "create",
+
       question:
-        GuidanceQuestion
-    ) => {
-      setEditor({
-        mode: "create",
+        question.question,
 
-        question:
-          question.question,
+      category:
+        question.category,
+    });
+  };
 
-        category:
-          question.category,
-      });
-    };
+  /*
+   * ADD ANOTHER PERSPECTIVE
+   */
+  const addPerspective = (
+    group:
+      GuidanceGroup
+  ) => {
+    setEditor({
+      mode:
+        "alternative",
 
-  const addPerspective =
-    (
-      group:
-        GuidanceGroup
-    ) => {
-      setEditor({
-        mode:
-          "alternative",
+      question:
+        group.question,
 
-        question:
-          group.question,
+      category:
+        group.category,
+    });
+  };
 
-        category:
-          group.category,
-      });
-    };
+  /*
+   * EDIT PUBLISHED PERSPECTIVE
+   */
+  const editPerspective = (
+    perspective:
+      GuidancePerspective
+  ) => {
+    setEditor({
+      mode:
+        "edit",
 
-  const editPerspective =
-    (
-      perspective:
-        GuidancePerspective
-    ) => {
-      setEditor({
-        mode: "edit",
+      question:
+        perspective.question,
 
-        question:
-          perspective.question,
+      category:
+        perspective.category,
 
-        category:
-          perspective.category,
+      perspective,
+    });
+  };
 
-        perspective,
-      });
-    };
-
+  /*
+   * DELETE
+   */
   const remove =
     async () => {
       if (
@@ -311,7 +387,10 @@ export default function SafeHavenWorkspace({
         return;
       }
 
-      setDeleting(true);
+      setDeleting(
+        true
+      );
+
       setMessage("");
 
       try {
@@ -339,9 +418,12 @@ export default function SafeHavenWorkspace({
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
-            result.message
+            result.message ||
+              "Unable to delete content."
           );
         }
 
@@ -358,18 +440,44 @@ export default function SafeHavenWorkspace({
         );
 
         await load();
-      } catch {
+      } catch (
+        error
+      ) {
         setMessage(
-          "Incorrect deletion password or the content could not be deleted."
+          error instanceof
+            Error &&
+            error.message
+            ? error.message
+            : "The content could not be deleted."
         );
       } finally {
-        setDeleting(false);
+        setDeleting(
+          false
+        );
       }
+    };
+
+  const closeDelete =
+    () => {
+      if (
+        deleting
+      ) {
+        return;
+      }
+
+      setDeleteTarget(
+        null
+      );
+
+      setDeletionPin(
+        ""
+      );
     };
 
   return (
     <div>
       {/* HEADER */}
+
       <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
@@ -389,11 +497,23 @@ export default function SafeHavenWorkspace({
 
         <button
           type="button"
-          onClick={load}
-          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
+          onClick={
+            load
+          }
+          disabled={
+            loading
+          }
+          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent disabled:opacity-50"
         >
           <RefreshCw
-            size={13}
+            size={
+              13
+            }
+            className={
+              loading
+                ? "animate-spin"
+                : ""
+            }
           />
 
           Refresh
@@ -401,12 +521,14 @@ export default function SafeHavenWorkspace({
       </div>
 
       {/* STATS */}
+
       <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
         <StatCard
           label="Awaiting"
           value={
             data?.counts
-              .unanswered ?? 0
+              .unanswered ??
+            0
           }
         />
 
@@ -414,7 +536,8 @@ export default function SafeHavenWorkspace({
           label="Questions"
           value={
             data?.counts
-              .questions ?? 0
+              .questions ??
+            0
           }
         />
 
@@ -422,25 +545,38 @@ export default function SafeHavenWorkspace({
           label="Perspectives"
           value={
             data?.counts
-              .published ?? 0
+              .published ??
+            0
           }
         />
       </div>
 
       {/* TABS */}
-      <div className="mt-5 flex gap-2">
+
+      <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() =>
-            setView("queue")
+            setView(
+              "queue"
+            )
           }
           className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${
-            view === "queue"
+            view ===
+            "queue"
               ? "border-accent bg-accent text-primary"
               : "border-white/10 bg-secondary text-slate-400 hover:text-white"
           }`}
         >
-          Awaiting response
+          Awaiting response{" "}
+
+          <span className="ml-1 opacity-70">
+            {
+              data?.counts
+                .unanswered ??
+              0
+            }
+          </span>
         </button>
 
         <button
@@ -462,39 +598,57 @@ export default function SafeHavenWorkspace({
       </div>
 
       {/* SEARCH */}
+
       <div className="relative mt-4">
         <Search
-          size={15}
+          size={
+            15
+          }
           className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600"
         />
 
         <input
-          value={query}
-          onChange={(event) =>
+          value={
+            query
+          }
+          onChange={(
+            event
+          ) =>
             setQuery(
-              event.target.value
+              event.target
+                .value
             )
           }
           placeholder="Search questions, categories or answers..."
-          className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
+          className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
         />
       </div>
 
+      {/* MESSAGE */}
+
       {message && (
         <div className="mt-4 rounded-xl border border-white/10 bg-secondary px-4 py-3 text-xs text-slate-300">
-          {message}
+          {
+            message
+          }
         </div>
       )}
 
-      {/* LOADING */}
+      {/* CONTENT */}
+
       {loading ? (
         <div className="mt-5 space-y-3">
           {Array.from({
             length: 3,
           }).map(
-            (_, index) => (
+            (
+              _,
+              index
+            ) => (
               <div
-                key={index}
+                key={
+                  index
+                }
                 className="h-36 animate-pulse rounded-2xl border border-white/10 bg-secondary"
               />
             )
@@ -506,24 +660,25 @@ export default function SafeHavenWorkspace({
           items={
             filteredQuestions
           }
+          role={
+            role
+          }
           onAnswer={
             openQuestion
           }
           onDelete={(
             item
           ) =>
-            setDeleteTarget(
-              {
-                kind:
-                  "question",
+            setDeleteTarget({
+              kind:
+                "question",
 
-                id:
-                  item.id,
+              id:
+                item.id,
 
-                label:
-                  item.question,
-              }
-            )
+              label:
+                item.question,
+            })
           }
         />
       ) : (
@@ -531,7 +686,9 @@ export default function SafeHavenWorkspace({
           groups={
             filteredGroups
           }
-          role={role}
+          role={
+            role
+          }
           expandedGroup={
             expandedGroup
           }
@@ -547,34 +704,38 @@ export default function SafeHavenWorkspace({
           onDelete={(
             item
           ) =>
-            setDeleteTarget(
-              {
-                kind:
-                  "answer",
+            setDeleteTarget({
+              kind:
+                "answer",
 
-                id:
-                  item.id,
+              id:
+                item.id,
 
-                label:
-                  item.question,
-              }
-            )
+              label:
+                item.question,
+            })
           }
         />
       )}
 
-      {/* EDITOR MODAL */}
+      {/* GUIDANCE EDITOR */}
+
       {editor && (
         <GuidanceEditorModal
-          state={editor}
-          role={role}
+          state={
+            editor
+          }
           onClose={() =>
-            setEditor(null)
+            setEditor(
+              null
+            )
           }
           onSaved={async (
             savedMessage
           ) => {
-            setEditor(null);
+            setEditor(
+              null
+            );
 
             setMessage(
               savedMessage
@@ -590,109 +751,170 @@ export default function SafeHavenWorkspace({
       )}
 
       {/* DELETE MODAL */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
-                <LockKeyhole
-                  size={16}
-                />
+
+      {deleteTarget &&
+        role ===
+          "main" && (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="safe-haven-delete-title"
+          >
+            <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                  <LockKeyhole
+                    size={
+                      16
+                    }
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    closeDelete
+                  }
+                  disabled={
+                    deleting
+                  }
+                  aria-label="Close delete confirmation"
+                  className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
+                >
+                  <X
+                    size={
+                      15
+                    }
+                  />
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
+              <h2
+                id="safe-haven-delete-title"
+                className="mt-5 text-lg font-extrabold text-white"
+              >
+                Delete content?
+              </h2>
+
+              <p className="mt-2 line-clamp-3 text-xs leading-6 text-slate-400">
+                {
+                  deleteTarget.label
+                }
+              </p>
+
+              <p className="mt-2 text-[10px] leading-5 text-slate-600">
+                This action is
+                permanent. Enter
+                the Witness Path
+                deletion password
+                to continue.
+              </p>
+
+              <input
+                type="password"
+                value={
+                  deletionPin
+                }
+                onChange={(
+                  event
+                ) =>
+                  setDeletionPin(
+                    event.target
+                      .value
                   )
                 }
-                className="flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-white/5 hover:text-white"
-              >
-                <X size={15} />
-              </button>
-            </div>
+                onKeyDown={(
+                  event
+                ) => {
+                  if (
+                    event.key ===
+                      "Enter" &&
+                    deletionPin.trim() &&
+                    !deleting
+                  ) {
+                    remove();
+                  }
+                }}
+                autoComplete="current-password"
+                placeholder="Deletion password"
+                className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-red-400/50 focus:ring-4 focus:ring-red-500/10"
+              />
 
-            <h2 className="mt-5 text-lg font-extrabold text-white">
-              Delete content?
-            </h2>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={
+                    closeDelete
+                  }
+                  disabled={
+                    deleting
+                  }
+                  className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
 
-            <p className="mt-2 line-clamp-3 text-xs leading-6 text-slate-400">
-              {deleteTarget.label}
-            </p>
+                <button
+                  type="button"
+                  onClick={
+                    remove
+                  }
+                  disabled={
+                    deleting ||
+                    !deletionPin.trim()
+                  }
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {deleting && (
+                    <Loader2
+                      size={
+                        13
+                      }
+                      className="animate-spin"
+                    />
+                  )}
 
-            <input
-              type="password"
-              value={
-                deletionPin
-              }
-              onChange={(event) =>
-                setDeletionPin(
-                  event.target
-                    .value
-                )
-              }
-              placeholder="Deletion password"
-              className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-red-400/50"
-            />
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
-                  )
-                }
-                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={remove}
-                disabled={
-                  deleting ||
-                  !deletionPin.trim()
-                }
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white disabled:opacity-40"
-              >
-                {deleting && (
-                  <Loader2
-                    size={13}
-                    className="animate-spin"
-                  />
-                )}
-
-                Delete
-              </button>
+                  {deleting
+                    ? "Deleting..."
+                    : "Delete permanently"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
 
+/*
+ * QUESTION QUEUE
+ */
 function QuestionQueue({
   items,
+  role,
   onAnswer,
   onDelete,
 }: {
   items:
     GuidanceQuestion[];
 
+  role:
+    AdminRole;
+
   onAnswer: (
-    item: GuidanceQuestion
+    item:
+      GuidanceQuestion
   ) => void;
 
   onDelete: (
-    item: GuidanceQuestion
+    item:
+      GuidanceQuestion
   ) => void;
 }) {
   if (
-    items.length === 0
+    items.length ===
+    0
   ) {
     return (
       <EmptyState
@@ -705,33 +927,32 @@ function QuestionQueue({
   return (
     <div className="mt-5 space-y-3">
       {items.map(
-        (item) => (
+        (
+          item
+        ) => (
           <article
-            key={item.id}
+            key={
+              item.id
+            }
             className="rounded-2xl border border-white/10 bg-secondary p-4 sm:p-5"
           >
             <span className="rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-accent">
-              {item.category}
+              {
+                item.category
+              }
             </span>
 
             <h2 className="mt-3 text-sm font-extrabold leading-6 text-white">
-              {item.question}
+              {
+                item.question
+              }
             </h2>
 
             {item.createdAt && (
               <p className="mt-2 text-[10px] text-slate-600">
                 Submitted{" "}
-                {new Intl.DateTimeFormat(
-                  "en",
-                  {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  }
-                ).format(
-                  new Date(
-                    item.createdAt
-                  )
+                {formatDate(
+                  item.createdAt
                 )}
               </p>
             )}
@@ -740,30 +961,41 @@ function QuestionQueue({
               <button
                 type="button"
                 onClick={() =>
-                  onAnswer(item)
+                  onAnswer(
+                    item
+                  )
                 }
-                className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary"
+                className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary transition hover:brightness-105"
               >
                 <MessageCircleQuestion
-                  size={13}
+                  size={
+                    13
+                  }
                 />
 
                 Answer
               </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  onDelete(item)
-                }
-                className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10"
-              >
-                <Trash2
-                  size={13}
-                />
+              {role ===
+                "main" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onDelete(
+                      item
+                    )
+                  }
+                  className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10"
+                >
+                  <Trash2
+                    size={
+                      13
+                    }
+                  />
 
-                Delete
-              </button>
+                  Delete
+                </button>
+              )}
             </div>
           </article>
         )
@@ -772,6 +1004,9 @@ function QuestionQueue({
   );
 }
 
+/*
+ * PUBLISHED GUIDANCE
+ */
 function PublishedGuidance({
   groups,
   role,
@@ -784,17 +1019,20 @@ function PublishedGuidance({
   groups:
     GuidanceGroup[];
 
-  role: AdminRole;
+  role:
+    AdminRole;
 
   expandedGroup:
     string | null;
 
   setExpandedGroup: (
-    value: string | null
+    value:
+      string | null
   ) => void;
 
   onAddPerspective: (
-    group: GuidanceGroup
+    group:
+      GuidanceGroup
   ) => void;
 
   onEdit: (
@@ -808,7 +1046,8 @@ function PublishedGuidance({
   ) => void;
 }) {
   if (
-    groups.length === 0
+    groups.length ===
+    0
   ) {
     return (
       <EmptyState
@@ -821,7 +1060,9 @@ function PublishedGuidance({
   return (
     <div className="mt-5 space-y-3">
       {groups.map(
-        (group) => {
+        (
+          group
+        ) => {
           const key =
             group.question
               .trim()
@@ -833,7 +1074,9 @@ function PublishedGuidance({
 
           return (
             <section
-              key={key}
+              key={
+                key
+              }
               className="overflow-hidden rounded-2xl border border-white/10 bg-secondary"
             >
               <button
@@ -849,11 +1092,15 @@ function PublishedGuidance({
               >
                 <div>
                   <span className="rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-accent">
-                    {group.category}
+                    {
+                      group.category
+                    }
                   </span>
 
                   <h2 className="mt-3 text-sm font-extrabold leading-6 text-white">
-                    {group.question}
+                    {
+                      group.question
+                    }
                   </h2>
 
                   <p className="mt-2 text-[10px] text-slate-600">
@@ -862,6 +1109,7 @@ function PublishedGuidance({
                         .perspectives
                         .length
                     }{" "}
+
                     {group
                       .perspectives
                       .length ===
@@ -872,7 +1120,9 @@ function PublishedGuidance({
                 </div>
 
                 <ChevronDown
-                  size={16}
+                  size={
+                    16
+                  }
                   className={`mt-1 shrink-0 text-slate-500 transition ${
                     expanded
                       ? "rotate-180"
@@ -893,113 +1143,111 @@ function PublishedGuidance({
                     className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-xl border border-accent/20 bg-accent/10 px-3.5 text-[11px] font-bold text-accent transition hover:border-accent/40"
                   >
                     <Plus
-                      size={13}
+                      size={
+                        13
+                      }
                     />
 
                     Add perspective
                   </button>
 
                   <div className="mt-4 space-y-3">
-                    {group.perspectives.map(
-                      (
-                        perspective,
-                        index
-                      ) => (
-                        <article
-                          key={
-                            perspective.id
-                          }
-                          className="rounded-xl border border-white/10 bg-primary p-4"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600">
-                                Perspective{" "}
-                                {index +
-                                  1}
-                              </p>
+                    {group
+                      .perspectives
+                      .map(
+                        (
+                          perspective,
+                          index
+                        ) => (
+                          <article
+                            key={
+                              perspective.id
+                            }
+                            className="rounded-xl border border-white/10 bg-primary p-4"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600">
+                                  Perspective{" "}
+                                  {
+                                    index +
+                                    1
+                                  }
+                                </p>
 
-                              <p className="mt-1 text-xs font-bold text-white">
-                                {
-                                  perspective.author
-                                }
-                              </p>
+                                <p className="mt-1 text-xs font-bold text-white">
+                                  {
+                                    perspective.author
+                                  }
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-[10px] text-slate-600">
+                                <span className="inline-flex items-center gap-1">
+                                  <Eye
+                                    size={
+                                      11
+                                    }
+                                  />
+
+                                  {
+                                    perspective.views
+                                  }
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-2 text-[10px] text-slate-600">
-                              <span className="inline-flex items-center gap-1">
-                                <Eye
+                            <div className="mt-4 font-serif text-sm leading-7 text-slate-300">
+                              <FormattedContent
+                                content={
+                                  perspective.answer
+                                }
+                              />
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onEdit(
+                                    perspective
+                                  )
+                                }
+                                className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-white/10 px-3 text-[10px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
+                              >
+                                <Edit3
                                   size={
-                                    11
+                                    12
                                   }
                                 />
 
-                                {
-                                  perspective.views
-                                }
-                              </span>
+                                Edit
+                              </button>
 
                               {role ===
-                                "main" &&
-                                perspective.editCode && (
-                                  <span className="rounded-md border border-accent/15 bg-accent/5 px-2 py-1 font-mono text-accent">
-                                    Code:{" "}
-                                    {
-                                      perspective.editCode
+                                "main" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onDelete(
+                                      perspective
+                                    )
+                                  }
+                                  className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-red-500/20 px-3 text-[10px] font-bold text-red-400 transition hover:bg-red-500/10"
+                                >
+                                  <Trash2
+                                    size={
+                                      12
                                     }
-                                  </span>
-                                )}
+                                  />
+
+                                  Delete
+                                </button>
+                              )}
                             </div>
-                          </div>
-
-                          <div className="mt-4 font-serif text-sm text-slate-300">
-                            <FormattedContent
-                              content={
-                                perspective.answer
-                              }
-                            />
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onEdit(
-                                  perspective
-                                )
-                              }
-                              className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-white/10 px-3 text-[10px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
-                            >
-                              <Edit3
-                                size={
-                                  12
-                                }
-                              />
-
-                              Edit
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onDelete(
-                                  perspective
-                                )
-                              }
-                              className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-red-500/20 px-3 text-[10px] font-bold text-red-400 hover:bg-red-500/10"
-                            >
-                              <Trash2
-                                size={
-                                  12
-                                }
-                              />
-
-                              Delete
-                            </button>
-                          </div>
-                        </article>
-                      )
-                    )}
+                          </article>
+                        )
+                      )}
                   </div>
                 </div>
               )}
@@ -1011,152 +1259,175 @@ function PublishedGuidance({
   );
 }
 
+/*
+ * GUIDANCE EDITOR
+ */
 function GuidanceEditorModal({
   state,
-  role,
   onClose,
   onSaved,
 }: {
-  state: EditorState;
+  state:
+    EditorState;
 
-  role: AdminRole;
-
-  onClose: () => void;
+  onClose:
+    () => void;
 
   onSaved: (
     message: string
-  ) => Promise<void> | void;
+  ) =>
+    | Promise<void>
+    | void;
 }) {
   const [
     answer,
     setAnswer,
-  ] = useState(
-    state.perspective
-      ?.answer ?? ""
-  );
+  ] =
+    useState(
+      state.perspective
+        ?.answer ??
+        ""
+    );
 
   const [
     author,
     setAuthor,
-  ] = useState(
-    state.perspective
-      ?.author ?? ""
-  );
-
-  const [
-    editCode,
-    setEditCode,
-  ] = useState(
-    role === "main"
-      ? state.perspective
-          ?.editCode ?? ""
-      : ""
-  );
+  ] =
+    useState(
+      state.perspective
+        ?.author ??
+        ""
+    );
 
   const [
     submitting,
     setSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     error,
     setError,
-  ] = useState("");
+  ] =
+    useState("");
 
-  const submit = async (
-    event:
-      FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+  const submit =
+    async (
+      event:
+        FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
 
-    if (!answer.trim()) {
-      return;
-    }
-
-    setSubmitting(true);
-    setError("");
-
-    try {
-      const editing =
-        state.mode ===
-        "edit";
-
-      const response =
-        await fetch(
-          editing
-            ? `/api/admin/guidance/answer/${state.perspective?.id}`
-            : "/api/admin/guidance",
-          {
-            method:
-              editing
-                ? "PATCH"
-                : "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                category:
-                  state.category,
-
-                question:
-                  state.question,
-
-                answer,
-
-                author,
-
-                editCode:
-                  editing
-                    ? editCode
-                    : undefined,
-              }),
-          }
-        );
-
-      const result =
-        await response.json();
-
-      if (!response.ok) {
+      if (
+        !answer.trim()
+      ) {
         setError(
-          result.message ||
-            "Unable to save guidance."
+          "Guidance answer is required."
         );
 
         return;
       }
 
-      await onSaved(
-        editing
-          ? "Perspective updated."
-          : state.mode ===
-              "alternative"
-            ? "New perspective published."
-            : "Guidance answer published."
+      setSubmitting(
+        true
       );
-    } catch {
-      setError(
-        "Unable to save guidance."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
+      setError("");
+
+      try {
+        const editing =
+          state.mode ===
+          "edit";
+
+        const response =
+          await fetch(
+            editing
+              ? `/api/admin/guidance/answer/${state.perspective?.id}`
+              : "/api/admin/guidance",
+            {
+              method:
+                editing
+                  ? "PATCH"
+                  : "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  category:
+                    state.category,
+
+                  question:
+                    state.question,
+
+                  answer:
+                    answer.trim(),
+
+                  author:
+                    author.trim() ||
+                    "The Witness Team",
+                }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok
+        ) {
+          setError(
+            result.message ||
+              "Unable to save guidance."
+          );
+
+          return;
+        }
+
+        await onSaved(
+          editing
+            ? "Perspective updated."
+            : state.mode ===
+                "alternative"
+              ? "New perspective published."
+              : "Guidance answer published."
+        );
+      } catch {
+        setError(
+          "Unable to save guidance."
+        );
+      } finally {
+        setSubmitting(
+          false
+        );
+      }
+    };
 
   return (
-    <div className="fixed inset-0 z-[85] overflow-y-auto bg-black/75 px-4 py-6 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[85] overflow-y-auto bg-black/75 px-4 py-6 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="guidance-editor-title"
+    >
       <div className="mx-auto w-full max-w-[720px] rounded-2xl border border-white/10 bg-secondary shadow-2xl">
         {/* TOP */}
+
         <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
           <div>
             <span className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-accent">
-              {state.category}
+              {
+                state.category
+              }
             </span>
 
-            <h2 className="mt-2 text-lg font-extrabold text-white">
+            <h2
+              id="guidance-editor-title"
+              className="mt-2 text-lg font-extrabold text-white"
+            >
               {state.mode ===
               "edit"
                 ? "Edit perspective"
@@ -1169,68 +1440,94 @@ function GuidanceEditorModal({
 
           <button
             type="button"
-            onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-white/5 hover:text-white"
+            onClick={
+              onClose
+            }
+            disabled={
+              submitting
+            }
+            aria-label="Close guidance editor"
+            className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
           >
-            <X size={15} />
+            <X
+              size={
+                15
+              }
+            />
           </button>
         </div>
 
         <form
-          onSubmit={submit}
+          onSubmit={
+            submit
+          }
           className="p-5"
         >
           {/* QUESTION */}
+
           <div className="rounded-xl border border-white/10 bg-primary p-4">
             <span className="text-[9px] font-bold uppercase tracking-[0.13em] text-slate-600">
               Question
             </span>
 
             <p className="mt-2 text-sm font-bold leading-6 text-white">
-              {state.question}
+              {
+                state.question
+              }
             </p>
           </div>
 
           {/* AUTHOR */}
+
           <div className="mt-5">
             <label className="mb-2 block text-xs font-bold text-slate-300">
               Answered by
             </label>
 
             <input
-              value={author}
-              onChange={(event) =>
+              value={
+                author
+              }
+              onChange={(
+                event
+              ) =>
                 setAuthor(
                   event.target
                     .value
                 )
               }
               placeholder="The Witness Team"
-              className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
+              className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
             />
           </div>
 
-          {/* SHARED RICH TEXT */}
+          {/* ANSWER */}
+
           <div className="mt-5">
             <RichTextEditor
               label="Guidance answer"
-              value={answer}
+              value={
+                answer
+              }
               onChange={
                 setAnswer
               }
-              rows={12}
+              rows={
+                12
+              }
               placeholder="Write the guidance response..."
             />
           </div>
 
           {/* LIVE PREVIEW */}
+
           {answer.trim() && (
             <div className="mt-5 rounded-xl border border-white/10 bg-primary p-4">
               <span className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-accent">
                 Live preview
               </span>
 
-              <div className="mt-4 font-serif text-sm text-slate-300">
+              <div className="mt-4 font-serif text-sm leading-7 text-slate-300">
                 <FormattedContent
                   content={
                     answer
@@ -1240,59 +1537,30 @@ function GuidanceEditorModal({
             </div>
           )}
 
-          {/* EDIT CODE */}
-          {state.mode ===
-            "edit" && (
-            <div className="mt-5">
-              <label className="mb-2 block text-xs font-bold text-slate-300">
-                Unique edit code
-              </label>
+          {/* ERROR */}
 
-              <div className="relative">
-                <LockKeyhole
-                  size={14}
-                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600"
-                />
-
-                <input
-                  type="password"
-                  value={
-                    editCode
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setEditCode(
-                      event.target
-                        .value
-                    )
-                  }
-                  required
-                  placeholder="Enter edit code"
-                  className="h-11 w-full rounded-xl border border-white/10 bg-primary pl-10 pr-3.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
-                />
-              </div>
-
-              <p className="mt-2 text-[10px] leading-5 text-slate-600">
-                Editing published
-                guidance keeps the
-                existing Witness Path
-                edit-code protection.
+          {error && (
+            <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+              <p className="text-xs font-medium text-red-400">
+                {
+                  error
+                }
               </p>
             </div>
           )}
 
-          {error && (
-            <p className="mt-4 text-xs font-medium text-red-400">
-              {error}
-            </p>
-          )}
+          {/* ACTIONS */}
 
           <div className="mt-6 flex flex-col-reverse gap-2 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={onClose}
-              className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
+              onClick={
+                onClose
+              }
+              disabled={
+                submitting
+              }
+              className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 transition hover:text-white disabled:opacity-40"
             >
               Cancel
             </button>
@@ -1301,16 +1569,15 @@ function GuidanceEditorModal({
               type="submit"
               disabled={
                 submitting ||
-                !answer.trim() ||
-                (state.mode ===
-                  "edit" &&
-                  !editCode.trim())
+                !answer.trim()
               }
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-xs font-extrabold text-primary disabled:opacity-40"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-xs font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {submitting && (
                 <Loader2
-                  size={13}
+                  size={
+                    13
+                  }
                   className="animate-spin"
                 />
               )}
@@ -1329,47 +1596,71 @@ function GuidanceEditorModal({
   );
 }
 
+/*
+ * STAT CARD
+ */
 function StatCard({
   label,
   value,
 }: {
-  label: string;
-  value: number;
+  label:
+    string;
+
+  value:
+    number;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-secondary p-3 sm:p-4">
       <p className="text-lg font-extrabold text-white sm:text-xl">
-        {value}
+        {new Intl.NumberFormat(
+          "en"
+        ).format(
+          value
+        )}
       </p>
 
       <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.1em] text-slate-600 sm:text-[10px]">
-        {label}
+        {
+          label
+        }
       </p>
     </div>
   );
 }
 
+/*
+ * EMPTY STATE
+ */
 function EmptyState({
   title,
   text,
 }: {
-  title: string;
-  text: string;
+  title:
+    string;
+
+  text:
+    string;
 }) {
   return (
     <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-secondary px-5 py-14 text-center">
       <div className="mx-auto flex size-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
         <BookOpen
-          size={17}
+          size={
+            17
+          }
         />
       </div>
 
       <p className="mt-4 text-xs font-bold text-slate-400">
-        {title}
+        {
+          title
+        }
       </p>
 
       <p className="mt-1 text-[10px] text-slate-600">
-        {text}
+        {
+          text
+        }
       </p>
     </div>
   );

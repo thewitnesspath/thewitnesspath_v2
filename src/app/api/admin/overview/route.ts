@@ -99,7 +99,9 @@ export async function GET() {
       top: {
         blogs:
           topBlogs.data ?? [],
+
         testimonies: [],
+
         guidance: [],
       },
     });
@@ -191,6 +193,7 @@ export async function GET() {
 
       top: {
         blogs: [],
+
         testimonies: [],
 
         guidance:
@@ -203,12 +206,12 @@ export async function GET() {
   /*
    * MAIN ADMIN
    */
-
   const [
     pendingTestimonies,
     publishedTestimonies,
     blogCount,
     prayerCount,
+    whatsappSubscribers,
     questionsResult,
     answersResult,
     visitsResult,
@@ -216,6 +219,9 @@ export async function GET() {
     topTestimonies,
     topGuidance,
   ] = await Promise.all([
+    /*
+     * PENDING TESTIMONIES
+     */
     supabaseAdmin
       .from("Testimonies")
       .select("*", {
@@ -227,6 +233,9 @@ export async function GET() {
         false
       ),
 
+    /*
+     * PUBLISHED TESTIMONIES
+     */
     supabaseAdmin
       .from("Testimonies")
       .select("*", {
@@ -238,6 +247,9 @@ export async function GET() {
         true
       ),
 
+    /*
+     * BLOG POSTS
+     */
     supabaseAdmin
       .from("BlogPosts")
       .select("*", {
@@ -245,6 +257,9 @@ export async function GET() {
         head: true,
       }),
 
+    /*
+     * PRAYER REQUESTS
+     */
     supabaseAdmin
       .from(
         "PrayerRequests"
@@ -254,18 +269,43 @@ export async function GET() {
         head: true,
       }),
 
+    /*
+     * ACTIVE WHATSAPP SUBSCRIBERS
+     */
+    supabaseAdmin
+      .from(
+        "WhatsAppSubscribers"
+      )
+      .select("*", {
+        count: "exact",
+        head: true,
+      })
+      .eq(
+        "is_active",
+        true
+      ),
+
+    /*
+     * QUESTIONS
+     */
     supabaseAdmin
       .from("Questions")
       .select(
         "id, question"
       ),
 
+    /*
+     * ANSWERS
+     */
     supabaseAdmin
       .from("Answers")
       .select(
         "id, question"
       ),
 
+    /*
+     * SITE VISITS
+     */
     supabaseAdmin
       .from("SiteVisits")
       .select(
@@ -279,6 +319,9 @@ export async function GET() {
       )
       .limit(7),
 
+    /*
+     * TOP BLOG POSTS
+     */
     supabaseAdmin
       .from("BlogPosts")
       .select(
@@ -289,6 +332,9 @@ export async function GET() {
       })
       .limit(5),
 
+    /*
+     * TOP TESTIMONIES
+     */
     supabaseAdmin
       .from("Testimonies")
       .select(
@@ -303,6 +349,9 @@ export async function GET() {
       })
       .limit(5),
 
+    /*
+     * TOP GUIDANCE
+     */
     supabaseAdmin
       .from("Answers")
       .select(
@@ -314,6 +363,9 @@ export async function GET() {
       .limit(5),
   ]);
 
+  /*
+   * CALCULATE UNANSWERED GUIDANCE
+   */
   const answered =
     new Set(
       (
@@ -348,6 +400,9 @@ export async function GET() {
         )
     ).length;
 
+  /*
+   * 7-DAY VISITS
+   */
   const visits7d =
     (
       visitsResult.data ??
@@ -358,11 +413,16 @@ export async function GET() {
         item
       ) =>
         total +
-        (item.visit_count ??
-          0),
+        (
+          item.visit_count ??
+          0
+        ),
       0
     );
 
+  /*
+   * 7-DAY UNIQUE VISITORS
+   */
   const uniqueVisitors7d =
     (
       visitsResult.data ??
@@ -400,6 +460,10 @@ export async function GET() {
 
       prayerRequests:
         prayerCount.count ?? 0,
+
+      whatsappSubscribers:
+        whatsappSubscribers.count ??
+        0,
 
       unansweredGuidance,
 

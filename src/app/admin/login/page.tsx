@@ -23,7 +23,7 @@ export default async function AdminLoginPage() {
         <section className="relative hidden overflow-hidden border-r border-white/10 p-10 lg:flex lg:flex-col lg:justify-between">
           <div>
             <img
-              src="/logo.png"
+              src="/witness-icon.jpg"
               alt="The Witness Path"
               className="h-10 w-auto object-contain object-left"
             />

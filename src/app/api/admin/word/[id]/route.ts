@@ -20,7 +20,7 @@ type RouteContext = {
   }>;
 };
 
-function canAccess(
+function canEdit(
   role?: string
 ) {
   return (
@@ -30,7 +30,9 @@ function canAccess(
 }
 
 /*
+ * =================================
  * EDIT WORD OF THE WEEK
+ * =================================
  */
 export async function PATCH(
   request: Request,
@@ -41,13 +43,16 @@ export async function PATCH(
 
   if (
     !session ||
-    !canAccess(
+    !canEdit(
       session.role
     )
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Access denied.",
       },
       {
         status: 403,
@@ -55,15 +60,22 @@ export async function PATCH(
     );
   }
 
-  const { id } =
+  const {
+    id,
+  } =
     await context.params;
 
   if (
-    !/^\d+$/.test(id)
+    !/^\d+$/.test(
+      id
+    )
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Invalid Word of the Week entry.",
       },
       {
         status: 400,
@@ -93,21 +105,18 @@ export async function PATCH(
         ? body.content.trim()
         : "";
 
-    const editCode =
-      typeof body.editCode ===
-      "string"
-        ? body.editCode.trim()
-        : "";
-
     const titleError =
       validateTitle(
         title
       );
 
-    if (titleError) {
+    if (
+      titleError
+    ) {
       return NextResponse.json(
         {
           success: false,
+
           message:
             titleError,
         },
@@ -118,15 +127,14 @@ export async function PATCH(
     }
 
     if (
-      !content ||
-      !editCode
+      !content
     ) {
       return NextResponse.json(
         {
           success: false,
 
           message:
-            "Content and edit code are required.",
+            "Word of the Week content is required.",
         },
         {
           status: 400,
@@ -135,65 +143,112 @@ export async function PATCH(
     }
 
     /*
-     * Exact legacy edit path:
+     * The authenticated admin role
+     * now authorizes editing.
      *
-     * table =
-     * WordOfTheWeekBank
-     *
-     * category =
-     * WordOfTheWeek
+     * We deliberately do NOT read,
+     * expose or require edit_code here.
      */
     const {
       data,
       error,
-    } =
-      await supabaseAdmin.rpc(
-        "secure_verify_and_edit_content",
-        {
-          target_table:
-            "WordOfTheWeekBank",
+    } = await supabaseAdmin
+      .from(
+        "WordOfTheWeekBank"
+      )
+      .update({
+        title,
 
-          target_id:
-            Number(id),
+        author:
+          author ||
+          null,
 
-          input_code:
-            editCode,
-
-          new_title:
-            title,
-
-          new_category:
-            "WordOfTheWeek",
-
-          new_author:
-            author,
-
-          new_content:
-            content,
-        }
-      );
+        content,
+      })
+      .eq(
+        "id",
+        Number(id)
+      )
+      .select(`
+        id,
+        title,
+        author,
+        content,
+        created_at
+      `)
+      .maybeSingle();
 
     if (
-      error ||
-      data !== true
+      error
+    ) {
+      console.error(
+        "Unable to update Word of the Week:",
+        error.message
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "The Word of the Week could not be updated.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (
+      !data
     ) {
       return NextResponse.json(
         {
           success: false,
 
           message:
-            "Incorrect edit code.",
+            "Word of the Week entry not found.",
         },
         {
-          status: 403,
+          status: 404,
         }
       );
     }
 
     return NextResponse.json({
       success: true,
+
+      item: {
+        id:
+          String(
+            data.id
+          ),
+
+        title:
+          data.title?.trim() ||
+          "Word of the Week",
+
+        author:
+          data.author?.trim() ||
+          "The Witness Team",
+
+        content:
+          data.content ??
+          "",
+
+        createdAt:
+          data.created_at ??
+          null,
+      },
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Word of the Week update error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
@@ -209,7 +264,11 @@ export async function PATCH(
 }
 
 /*
+ * =================================
  * DELETE WORD OF THE WEEK
+ *
+ * MAIN ADMIN ONLY
+ * =================================
  */
 export async function DELETE(
   request: Request,
@@ -220,13 +279,15 @@ export async function DELETE(
 
   if (
     !session ||
-    !canAccess(
-      session.role
-    )
+    session.role !==
+      "main"
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Only the main administrator can permanently delete Word of the Week entries.",
       },
       {
         status: 403,
@@ -234,15 +295,22 @@ export async function DELETE(
     );
   }
 
-  const { id } =
+  const {
+    id,
+  } =
     await context.params;
 
   if (
-    !/^\d+$/.test(id)
+    !/^\d+$/.test(
+      id
+    )
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Invalid Word of the Week entry.",
       },
       {
         status: 400,
@@ -260,7 +328,9 @@ export async function DELETE(
         ? body.deletionPin.trim()
         : "";
 
-    if (!deletionPin) {
+    if (
+      !deletionPin
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -293,7 +363,27 @@ export async function DELETE(
       );
 
     if (
-      error ||
+      error
+    ) {
+      console.error(
+        "Word of the Week deletion RPC error:",
+        error.message
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "The Word of the Week could not be deleted.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (
       data !== true
     ) {
       return NextResponse.json(
@@ -312,7 +402,14 @@ export async function DELETE(
     return NextResponse.json({
       success: true,
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Word of the Week deletion error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
@@ -325,4 +422,4 @@ export async function DELETE(
       }
     );
   }
-}   
+}

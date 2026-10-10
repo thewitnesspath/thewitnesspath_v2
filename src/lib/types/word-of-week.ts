@@ -7,7 +7,7 @@ export type WordOfWeekAdminItem = {
 
   content: string;
 
-  createdAt?: string | null;
-
-  editCode?: string | null;
+  createdAt?:
+    | string
+    | null;
 };

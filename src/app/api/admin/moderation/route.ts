@@ -17,17 +17,31 @@ import type {
 export const runtime =
   "nodejs";
 
-export async function GET() {
+async function authorize() {
   const session =
     await getAdminSession();
 
+  return (
+    session?.role ===
+    "main"
+  );
+}
+
+/*
+ * =================================
+ * LOAD MODERATION QUEUE
+ * =================================
+ */
+export async function GET() {
   if (
-    !session ||
-    session.role !== "main"
+    !(await authorize())
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Access denied.",
       },
       {
         status: 403,
@@ -35,6 +49,10 @@ export async function GET() {
     );
   }
 
+  /*
+   * First load all pending
+   * comments and replies.
+   */
   const [
     testimonyCommentsResult,
     testimonyRepliesResult,
@@ -43,94 +61,110 @@ export async function GET() {
   ] = await Promise.all([
     supabaseAdmin
       .from("Comments")
-      .select(
-        `
-          id,
-          testimony_id,
-          author,
-          content,
-          likes,
-          is_approved
-        `
-      )
+      .select(`
+        id,
+        testimony_id,
+        author,
+        content,
+        likes,
+        is_approved
+      `)
       .eq(
         "is_approved",
         false
       )
-      .order("id", {
-        ascending: false,
-      }),
+      .order(
+        "id",
+        {
+          ascending: false,
+        }
+      ),
 
     supabaseAdmin
-      .from("CommentReplies")
-      .select(
-        `
-          id,
-          comment_id,
-          author,
-          content,
-          is_approved
-        `
+      .from(
+        "CommentReplies"
       )
+      .select(`
+        id,
+        comment_id,
+        author,
+        content,
+        is_approved
+      `)
       .eq(
         "is_approved",
         false
       )
-      .order("id", {
-        ascending: false,
-      }),
+      .order(
+        "id",
+        {
+          ascending: false,
+        }
+      ),
 
     supabaseAdmin
-      .from("BlogComments")
-      .select(
-        `
-          id,
-          post_id,
-          author,
-          content,
-          likes,
-          is_approved
-        `
+      .from(
+        "BlogComments"
       )
+      .select(`
+        id,
+        post_id,
+        author,
+        content,
+        likes,
+        is_approved
+      `)
       .eq(
         "is_approved",
         false
       )
-      .order("id", {
-        ascending: false,
-      }),
+      .order(
+        "id",
+        {
+          ascending: false,
+        }
+      ),
 
     supabaseAdmin
-      .from("BlogCommentReplies")
-      .select(
-        `
-          id,
-          comment_id,
-          author,
-          content,
-          is_approved
-        `
+      .from(
+        "BlogCommentReplies"
       )
+      .select(`
+        id,
+        comment_id,
+        author,
+        content,
+        is_approved
+      `)
       .eq(
         "is_approved",
         false
       )
-      .order("id", {
-        ascending: false,
-      }),
+      .order(
+        "id",
+        {
+          ascending: false,
+        }
+      ),
   ]);
 
-  const errors = [
-    testimonyCommentsResult.error,
-    testimonyRepliesResult.error,
-    blogCommentsResult.error,
-    blogRepliesResult.error,
-  ].filter(Boolean);
+  const initialErrors =
+    [
+      testimonyCommentsResult.error,
+      testimonyRepliesResult.error,
+      blogCommentsResult.error,
+      blogRepliesResult.error,
+    ].filter(
+      Boolean
+    );
 
-  if (errors.length > 0) {
+  if (
+    initialErrors.length >
+    0
+  ) {
     console.error(
       "Unable to load moderation queue:",
-      errors.map(
+      initialErrors.map(
         (error) =>
           error?.message
       )
@@ -139,6 +173,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+
         message:
           "Moderation queue could not be loaded.",
       },
@@ -165,26 +200,48 @@ export async function GET() {
     [];
 
   /*
-   * Resolve reply → parent comment
+   * =================================
+   * RESOLVE REPLY → PARENT COMMENT
+   * =================================
    */
 
   const testimonyReplyParentIds =
     Array.from(
       new Set(
-        testimonyReplies.map(
-          (reply) =>
-            reply.comment_id
-        )
+        testimonyReplies
+          .map(
+            (reply) =>
+              reply.comment_id
+          )
+          .filter(
+            (
+              value
+            ) =>
+              value !==
+                null &&
+              value !==
+                undefined
+          )
       )
     );
 
   const blogReplyParentIds =
     Array.from(
       new Set(
-        blogReplies.map(
-          (reply) =>
-            reply.comment_id
-        )
+        blogReplies
+          .map(
+            (reply) =>
+              reply.comment_id
+          )
+          .filter(
+            (
+              value
+            ) =>
+              value !==
+                null &&
+              value !==
+                undefined
+          )
       )
     );
 
@@ -195,7 +252,9 @@ export async function GET() {
     testimonyReplyParentIds.length >
     0
       ? supabaseAdmin
-          .from("Comments")
+          .from(
+            "Comments"
+          )
           .select(
             "id, testimony_id"
           )
@@ -211,7 +270,9 @@ export async function GET() {
     blogReplyParentIds.length >
     0
       ? supabaseAdmin
-          .from("BlogComments")
+          .from(
+            "BlogComments"
+          )
           .select(
             "id, post_id"
           )
@@ -225,6 +286,38 @@ export async function GET() {
         }),
   ]);
 
+  if (
+    testimonyReplyParentsResult.error ||
+    blogReplyParentsResult.error
+  ) {
+    console.error(
+      "Unable to resolve moderation reply parents:",
+      {
+        testimony:
+          testimonyReplyParentsResult
+            .error
+            ?.message,
+
+        blog:
+          blogReplyParentsResult
+            .error
+            ?.message,
+      }
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+
+        message:
+          "Moderation queue could not be loaded.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+
   const testimonyReplyParents =
     testimonyReplyParentsResult.data ??
     [];
@@ -234,46 +327,77 @@ export async function GET() {
     [];
 
   /*
-   * Collect all parent content IDs
+   * =================================
+   * COLLECT TESTIMONY / BLOG IDS
+   * =================================
    */
 
   const testimonyIds =
     Array.from(
       new Set([
-        ...testimonyComments.map(
-          (comment) =>
-            comment.testimony_id
-        ),
+        ...testimonyComments
+          .map(
+            (comment) =>
+              comment.testimony_id
+          ),
 
-        ...testimonyReplyParents.map(
-          (comment) =>
-            comment.testimony_id
-        ),
+        ...testimonyReplyParents
+          .map(
+            (comment) =>
+              comment.testimony_id
+          ),
       ])
-    ).filter(Boolean);
+    ).filter(
+      (
+        value
+      ) =>
+        value !==
+          null &&
+        value !==
+          undefined
+    );
 
   const blogPostIds =
     Array.from(
       new Set([
-        ...blogComments.map(
-          (comment) =>
-            comment.post_id
-        ),
+        ...blogComments
+          .map(
+            (comment) =>
+              comment.post_id
+          ),
 
-        ...blogReplyParents.map(
-          (comment) =>
-            comment.post_id
-        ),
+        ...blogReplyParents
+          .map(
+            (comment) =>
+              comment.post_id
+          ),
       ])
-    ).filter(Boolean);
+    ).filter(
+      (
+        value
+      ) =>
+        value !==
+          null &&
+        value !==
+          undefined
+    );
+
+  /*
+   * =================================
+   * RESOLVE PARENT CONTENT TITLES
+   * =================================
+   */
 
   const [
     testimoniesResult,
     blogPostsResult,
   ] = await Promise.all([
-    testimonyIds.length > 0
+    testimonyIds.length >
+    0
       ? supabaseAdmin
-          .from("Testimonies")
+          .from(
+            "Testimonies"
+          )
           .select(
             "id, Title"
           )
@@ -286,9 +410,12 @@ export async function GET() {
           error: null,
         }),
 
-    blogPostIds.length > 0
+    blogPostIds.length >
+    0
       ? supabaseAdmin
-          .from("BlogPosts")
+          .from(
+            "BlogPosts"
+          )
           .select(
             "id, title"
           )
@@ -302,6 +429,44 @@ export async function GET() {
         }),
   ]);
 
+  if (
+    testimoniesResult.error ||
+    blogPostsResult.error
+  ) {
+    console.error(
+      "Unable to resolve moderation parent content:",
+      {
+        testimonies:
+          testimoniesResult
+            .error
+            ?.message,
+
+        blogs:
+          blogPostsResult
+            .error
+            ?.message,
+      }
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+
+        message:
+          "Moderation queue could not be loaded.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+
+  /*
+   * =================================
+   * LOOKUP MAPS
+   * =================================
+   */
+
   const testimonyMap =
     new Map(
       (
@@ -309,9 +474,11 @@ export async function GET() {
         []
       ).map(
         (item) => [
-          String(item.id),
+          String(
+            item.id
+          ),
 
-          item.Title ||
+          item.Title?.trim() ||
             "Untitled testimony",
         ]
       )
@@ -324,9 +491,11 @@ export async function GET() {
         []
       ).map(
         (item) => [
-          String(item.id),
+          String(
+            item.id
+          ),
 
-          item.title ||
+          item.title?.trim() ||
             "Untitled article",
         ]
       )
@@ -336,7 +505,10 @@ export async function GET() {
     new Map(
       testimonyReplyParents.map(
         (item) => [
-          String(item.id),
+          String(
+            item.id
+          ),
+
           String(
             item.testimony_id
           ),
@@ -348,7 +520,10 @@ export async function GET() {
     new Map(
       blogReplyParents.map(
         (item) => [
-          String(item.id),
+          String(
+            item.id
+          ),
+
           String(
             item.post_id
           ),
@@ -356,11 +531,14 @@ export async function GET() {
       )
     );
 
-  const items: ModerationItem[] =
+  const items:
+    ModerationItem[] =
     [];
 
   /*
+   * =================================
    * TESTIMONY COMMENTS
+   * =================================
    */
 
   for (
@@ -373,9 +551,10 @@ export async function GET() {
       );
 
     items.push({
-      id: String(
-        comment.id
-      ),
+      id:
+        String(
+          comment.id
+        ),
 
       kind:
         "testimony-comment",
@@ -385,10 +564,12 @@ export async function GET() {
         "Anonymous",
 
       content:
-        comment.content ?? "",
+        comment.content ??
+        "",
 
       likes:
-        comment.likes ?? 0,
+        comment.likes ??
+        0,
 
       parentId:
         testimonyId,
@@ -402,7 +583,9 @@ export async function GET() {
   }
 
   /*
+   * =================================
    * TESTIMONY REPLIES
+   * =================================
    */
 
   for (
@@ -420,9 +603,10 @@ export async function GET() {
       );
 
     items.push({
-      id: String(
-        reply.id
-      ),
+      id:
+        String(
+          reply.id
+        ),
 
       kind:
         "testimony-reply",
@@ -432,7 +616,8 @@ export async function GET() {
         "Anonymous",
 
       content:
-        reply.content ?? "",
+        reply.content ??
+        "",
 
       parentId:
         testimonyId,
@@ -448,7 +633,9 @@ export async function GET() {
   }
 
   /*
+   * =================================
    * BLOG COMMENTS
+   * =================================
    */
 
   for (
@@ -461,9 +648,10 @@ export async function GET() {
       );
 
     items.push({
-      id: String(
-        comment.id
-      ),
+      id:
+        String(
+          comment.id
+        ),
 
       kind:
         "blog-comment",
@@ -473,10 +661,12 @@ export async function GET() {
         "Anonymous",
 
       content:
-        comment.content ?? "",
+        comment.content ??
+        "",
 
       likes:
-        comment.likes ?? 0,
+        comment.likes ??
+        0,
 
       parentId:
         postId,
@@ -490,7 +680,9 @@ export async function GET() {
   }
 
   /*
+   * =================================
    * BLOG REPLIES
+   * =================================
    */
 
   for (
@@ -508,9 +700,10 @@ export async function GET() {
       );
 
     items.push({
-      id: String(
-        reply.id
-      ),
+      id:
+        String(
+          reply.id
+        ),
 
       kind:
         "blog-reply",
@@ -520,7 +713,8 @@ export async function GET() {
         "Anonymous",
 
       content:
-        reply.content ?? "",
+        reply.content ??
+        "",
 
       parentId:
         postId,
@@ -557,7 +751,7 @@ export async function GET() {
     {
       headers: {
         "Cache-Control":
-          "no-store",
+          "private, no-store, max-age=0",
       },
     }
   );

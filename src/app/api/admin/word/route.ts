@@ -30,6 +30,15 @@ function canAccess(
   );
 }
 
+/*
+ * Keep generating the old
+ * 4-character edit code so the
+ * existing database/legacy system
+ * remains compatible.
+ *
+ * The value is never returned to
+ * the admin browser.
+ */
 function generateEditCode() {
   const alphabet =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -54,7 +63,9 @@ function generateEditCode() {
 }
 
 /*
+ * =================================
  * LOAD WORD BANK
+ * =================================
  */
 export async function GET() {
   const session =
@@ -69,6 +80,8 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+        message:
+          "Access denied.",
       },
       {
         status: 403,
@@ -88,11 +101,16 @@ export async function GET() {
       title,
       author,
       content,
-      edit_code,
       created_at
     `)
     .order(
       "created_at",
+      {
+        ascending: false,
+      }
+    )
+    .order(
+      "id",
       {
         ascending: false,
       }
@@ -118,35 +136,41 @@ export async function GET() {
   }
 
   const items =
-  (data ?? []).map(
-    (item) => ({
-      id: String(
-        item.id
-      ),
+    (
+      data ?? []
+    ).map(
+      (item) => ({
+        id:
+          String(
+            item.id
+          ),
 
-      title:
-        item.title?.trim() ||
-        "Word of the Week",
+        title:
+          item.title?.trim() ||
+          "Word of the Week",
 
-      author:
-        item.author?.trim() ||
-        "The Witness Team",
+        author:
+          item.author?.trim() ||
+          "The Witness Team",
 
-      content:
-        item.content ?? "",
+        content:
+          item.content ??
+          "",
 
-      createdAt:
-        item.created_at ??
-        null,
+        createdAt:
+          item.created_at ??
+          null,
+      })
+    );
 
-      editCode:
-        session.role ===
-        "main"
-          ? item.edit_code ??
-            null
-          : undefined,
-    })
-  );
+  /*
+   * The newest-created entry remains
+   * the currently displayed Word of
+   * the Week.
+   */
+  const latest =
+    items[0] ??
+    null;
 
   return NextResponse.json(
     {
@@ -154,25 +178,26 @@ export async function GET() {
 
       items,
 
+      latest,
+
       counts: {
         entries:
           items.length,
       },
-
-      latest:
-        items[0] ?? null,
     },
     {
       headers: {
         "Cache-Control":
-          "no-store",
+          "private, no-store, max-age=0",
       },
     }
   );
 }
 
 /*
+ * =================================
  * CREATE WORD OF THE WEEK
+ * =================================
  */
 export async function POST(
   request: Request
@@ -189,6 +214,9 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Access denied.",
       },
       {
         status: 403,
@@ -223,10 +251,13 @@ export async function POST(
         title
       );
 
-    if (titleError) {
+    if (
+      titleError
+    ) {
       return NextResponse.json(
         {
           success: false,
+
           message:
             titleError,
         },
@@ -236,7 +267,9 @@ export async function POST(
       );
     }
 
-    if (!content) {
+    if (
+      !content
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -250,13 +283,6 @@ export async function POST(
       );
     }
 
-    /*
-     * Preserve the old
-     * 4-character edit-code format,
-     * but use cryptographic random
-     * generation instead of
-     * Math.random().
-     */
     const editCode =
       generateEditCode();
 
@@ -271,11 +297,21 @@ export async function POST(
         {
           title,
 
+          /*
+           * Preserve the current
+           * database behaviour:
+           * blank author = null.
+           */
           author:
-            author || null,
+            author ||
+            null,
 
           content,
 
+          /*
+           * Legacy compatibility only.
+           * Never returned to client.
+           */
           edit_code:
             editCode,
         },
@@ -283,11 +319,15 @@ export async function POST(
       .select(`
         id,
         title,
-        edit_code
+        author,
+        content,
+        created_at
       `)
       .single();
 
-    if (error) {
+    if (
+      error
+    ) {
       console.error(
         "Unable to create Word of the Week:",
         error.message
@@ -310,21 +350,36 @@ export async function POST(
       success: true,
 
       item: {
-        id: String(
-          data.id
-        ),
+        id:
+          String(
+            data.id
+          ),
 
         title:
-          data.title,
+          data.title?.trim() ||
+          "Word of the Week",
 
-        editCode:
-          session.role ===
-          "main"
-            ? data.edit_code
-            : undefined,
+        author:
+          data.author?.trim() ||
+          "The Witness Team",
+
+        content:
+          data.content ??
+          "",
+
+        createdAt:
+          data.created_at ??
+          null,
       },
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Word of the Week creation error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
@@ -337,4 +392,4 @@ export async function POST(
       }
     );
   }
-}
+} 

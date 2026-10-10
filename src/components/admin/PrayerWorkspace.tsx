@@ -38,10 +38,31 @@ type PrayerResult = {
 
   counts: {
     pending: number;
+
     published: number;
+
     prayers: number;
   };
 };
+
+function formatDate(
+  value: string
+) {
+  try {
+    return new Intl.DateTimeFormat(
+      "en",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    ).format(
+      new Date(value)
+    );
+  } catch {
+    return "";
+  }
+}
 
 export default function PrayerWorkspace() {
   const [
@@ -63,12 +84,14 @@ export default function PrayerWorkspace() {
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     query,
     setQuery,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     expandedId,
@@ -97,21 +120,30 @@ export default function PrayerWorkspace() {
   const [
     deletionPin,
     setDeletionPin,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     deleting,
     setDeleting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     message,
     setMessage,
-  ] = useState("");
+  ] =
+    useState("");
 
+  /*
+   * LOAD
+   */
   const load =
     useCallback(async () => {
-      setLoading(true);
+      setLoading(
+        true
+      );
+
       setMessage("");
 
       try {
@@ -127,24 +159,46 @@ export default function PrayerWorkspace() {
         const result =
           await response.json();
 
-        if (!response.ok) {
-          throw new Error();
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.message ||
+              "Prayer requests could not be loaded."
+          );
         }
 
-        setData(result);
-      } catch {
+        setData(
+          result
+        );
+      } catch (
+        error
+      ) {
         setMessage(
-          "Prayer requests could not be loaded."
+          error instanceof
+            Error &&
+            error.message
+            ? error.message
+            : "Prayer requests could not be loaded."
         );
       } finally {
-        setLoading(false);
+        setLoading(
+          false
+        );
       }
-    }, [status]);
+    }, [
+      status,
+    ]);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [
+    load,
+  ]);
 
+  /*
+   * FILTER
+   */
   const filtered =
     useMemo(() => {
       const requests =
@@ -156,30 +210,42 @@ export default function PrayerWorkspace() {
           .trim()
           .toLowerCase();
 
-      if (!search) {
+      if (
+        !search
+      ) {
         return requests;
       }
 
       return requests.filter(
-        (request) =>
+        (
+          request
+        ) =>
           [
             request.category,
             request.content,
           ]
             .join(" ")
             .toLowerCase()
-            .includes(search)
+            .includes(
+              search
+            )
       );
     }, [
       data,
       query,
     ]);
 
+  /*
+   * APPROVE
+   */
   const approve =
     async (
       id: string
     ) => {
-      setApprovingId(id);
+      setApprovingId(
+        id
+      );
+
       setMessage("");
 
       try {
@@ -195,20 +261,31 @@ export default function PrayerWorkspace() {
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
-            result.message
+            result.message ||
+              "The prayer request could not be approved."
           );
         }
 
         setMessage(
-          "Prayer request approved and published."
+          result.alreadyApproved
+            ? "This prayer request was already published."
+            : "Prayer request approved and published."
         );
 
         await load();
-      } catch {
+      } catch (
+        error
+      ) {
         setMessage(
-          "The prayer request could not be approved."
+          error instanceof
+            Error &&
+            error.message
+            ? error.message
+            : "The prayer request could not be approved."
         );
       } finally {
         setApprovingId(
@@ -217,6 +294,9 @@ export default function PrayerWorkspace() {
       }
     };
 
+  /*
+   * DELETE
+   */
   const remove =
     async () => {
       if (
@@ -226,7 +306,10 @@ export default function PrayerWorkspace() {
         return;
       }
 
-      setDeleting(true);
+      setDeleting(
+        true
+      );
+
       setMessage("");
 
       try {
@@ -254,9 +337,12 @@ export default function PrayerWorkspace() {
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
-            result.message
+            result.message ||
+              "The request could not be deleted."
           );
         }
 
@@ -273,18 +359,44 @@ export default function PrayerWorkspace() {
         );
 
         await load();
-      } catch {
+      } catch (
+        error
+      ) {
         setMessage(
-          "Incorrect deletion password or the request could not be deleted."
+          error instanceof
+            Error &&
+            error.message
+            ? error.message
+            : "The prayer request could not be deleted."
         );
       } finally {
-        setDeleting(false);
+        setDeleting(
+          false
+        );
       }
+    };
+
+  const closeDelete =
+    () => {
+      if (
+        deleting
+      ) {
+        return;
+      }
+
+      setDeleteTarget(
+        null
+      );
+
+      setDeletionPin(
+        ""
+      );
     };
 
   return (
     <div>
       {/* HEADER */}
+
       <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
@@ -305,11 +417,23 @@ export default function PrayerWorkspace() {
 
         <button
           type="button"
-          onClick={load}
-          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
+          onClick={
+            load
+          }
+          disabled={
+            loading
+          }
+          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw
-            size={13}
+            size={
+              13
+            }
+            className={
+              loading
+                ? "animate-spin"
+                : ""
+            }
           />
 
           Refresh
@@ -317,12 +441,14 @@ export default function PrayerWorkspace() {
       </div>
 
       {/* STATS */}
+
       <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
         <PrayerStat
           label="Pending"
           value={
             data?.counts
-              .pending ?? 0
+              .pending ??
+            0
           }
         />
 
@@ -330,7 +456,8 @@ export default function PrayerWorkspace() {
           label="Published"
           value={
             data?.counts
-              .published ?? 0
+              .published ??
+            0
           }
         />
 
@@ -338,13 +465,15 @@ export default function PrayerWorkspace() {
           label="Prayers"
           value={
             data?.counts
-              .prayers ?? 0
+              .prayers ??
+            0
           }
         />
       </div>
 
-      {/* STATUS TABS */}
-      <div className="mt-5 flex gap-2">
+      {/* TABS */}
+
+      <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() =>
@@ -359,7 +488,15 @@ export default function PrayerWorkspace() {
               : "border-white/10 bg-secondary text-slate-400 hover:text-white"
           }`}
         >
-          Awaiting review
+          Awaiting review{" "}
+
+          <span className="ml-1 opacity-70">
+            {
+              data?.counts
+                .pending ??
+              0
+            }
+          </span>
         </button>
 
         <button
@@ -376,45 +513,70 @@ export default function PrayerWorkspace() {
               : "border-white/10 bg-secondary text-slate-400 hover:text-white"
           }`}
         >
-          Published
+          Published{" "}
+
+          <span className="ml-1 opacity-70">
+            {
+              data?.counts
+                .published ??
+              0
+            }
+          </span>
         </button>
       </div>
 
       {/* SEARCH */}
+
       <div className="relative mt-4">
         <Search
-          size={15}
+          size={
+            15
+          }
           className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600"
         />
 
         <input
-          value={query}
-          onChange={(event) =>
+          value={
+            query
+          }
+          onChange={(
+            event
+          ) =>
             setQuery(
               event.target
                 .value
             )
           }
           placeholder="Search prayer requests..."
-          className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
+          className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
         />
       </div>
 
+      {/* MESSAGE */}
+
       {message && (
         <div className="mt-4 rounded-xl border border-white/10 bg-secondary px-4 py-3 text-xs text-slate-300">
-          {message}
+          {
+            message
+          }
         </div>
       )}
 
-      {/* LOADING */}
+      {/* CONTENT */}
+
       {loading ? (
         <div className="mt-5 space-y-3">
           {Array.from({
             length: 4,
           }).map(
-            (_, index) => (
+            (
+              _,
+              index
+            ) => (
               <div
-                key={index}
+                key={
+                  index
+                }
                 className="h-36 animate-pulse rounded-2xl border border-white/10 bg-secondary"
               />
             )
@@ -425,7 +587,9 @@ export default function PrayerWorkspace() {
         <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-secondary py-14 text-center">
           <div className="mx-auto flex size-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
             <ShieldCheck
-              size={17}
+              size={
+                17
+              }
             />
           </div>
 
@@ -441,7 +605,9 @@ export default function PrayerWorkspace() {
       ) : (
         <div className="mt-5 space-y-3">
           {filtered.map(
-            (request) => {
+            (
+              request
+            ) => {
               const expanded =
                 expandedId ===
                 request.id;
@@ -457,6 +623,8 @@ export default function PrayerWorkspace() {
                   }
                   className="rounded-2xl border border-white/10 bg-secondary p-4 transition hover:border-white/15 sm:p-5"
                 >
+                  {/* META */}
+
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <span className="rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-accent">
@@ -485,6 +653,8 @@ export default function PrayerWorkspace() {
                       </div>
                     )}
                   </div>
+
+                  {/* CONTENT */}
 
                   <div
                     className={`mt-4 overflow-hidden font-serif text-sm leading-7 text-slate-300 ${
@@ -519,7 +689,9 @@ export default function PrayerWorkspace() {
                         : "Read full request"}
 
                       <ChevronDown
-                        size={12}
+                        size={
+                          12
+                        }
                         className={
                           expanded
                             ? "rotate-180"
@@ -531,21 +703,13 @@ export default function PrayerWorkspace() {
 
                   {request.createdAt && (
                     <p className="mt-4 text-[10px] text-slate-600">
-                      {new Intl.DateTimeFormat(
-                        "en",
-                        {
-                          day: "numeric",
-                          month:
-                            "short",
-                          year: "numeric",
-                        }
-                      ).format(
-                        new Date(
-                          request.createdAt
-                        )
+                      {formatDate(
+                        request.createdAt
                       )}
                     </p>
                   )}
+
+                  {/* ACTIONS */}
 
                   <div className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-4">
                     {status ===
@@ -560,7 +724,7 @@ export default function PrayerWorkspace() {
                             request.id
                           )
                         }
-                        className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary disabled:opacity-50"
+                        className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {approving ? (
                           <Loader2
@@ -577,8 +741,9 @@ export default function PrayerWorkspace() {
                           />
                         )}
 
-                        Approve &
-                        publish
+                        {approving
+                          ? "Publishing..."
+                          : "Approve & publish"}
                       </button>
                     )}
 
@@ -596,7 +761,9 @@ export default function PrayerWorkspace() {
                       className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10"
                     >
                       <Trash2
-                        size={13}
+                        size={
+                          13
+                        }
                       />
 
                       Delete
@@ -610,30 +777,47 @@ export default function PrayerWorkspace() {
       )}
 
       {/* DELETE MODAL */}
+
       {deleteTarget && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="prayer-delete-title"
+        >
           <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
                 <LockKeyhole
-                  size={16}
+                  size={
+                    16
+                  }
                 />
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
-                  )
+                onClick={
+                  closeDelete
                 }
-                className="flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-white/5 hover:text-white"
+                disabled={
+                  deleting
+                }
+                aria-label="Close delete confirmation"
+                className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
               >
-                <X size={15} />
+                <X
+                  size={
+                    15
+                  }
+                />
               </button>
             </div>
 
-            <h2 className="mt-5 text-lg font-extrabold text-white">
+            <h2
+              id="prayer-delete-title"
+              className="mt-5 text-lg font-extrabold text-white"
+            >
               Delete prayer request?
             </h2>
 
@@ -643,51 +827,79 @@ export default function PrayerWorkspace() {
               request.
             </p>
 
+            <p className="mt-2 text-[10px] leading-5 text-slate-600">
+              Enter the Witness Path
+              deletion password to
+              continue.
+            </p>
+
             <input
               type="password"
               value={
                 deletionPin
               }
-              onChange={(event) =>
+              onChange={(
+                event
+              ) =>
                 setDeletionPin(
                   event.target
                     .value
                 )
               }
+              onKeyDown={(
+                event
+              ) => {
+                if (
+                  event.key ===
+                    "Enter" &&
+                  deletionPin.trim() &&
+                  !deleting
+                ) {
+                  remove();
+                }
+              }}
+              autoComplete="current-password"
               placeholder="Deletion password"
-              className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-red-400/50"
+              className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-red-400/50 focus:ring-4 focus:ring-red-500/10"
             />
 
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
-                  )
+                onClick={
+                  closeDelete
                 }
-                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
+                disabled={
+                  deleting
+                }
+                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 transition hover:text-white disabled:opacity-40"
               >
                 Cancel
               </button>
 
               <button
                 type="button"
-                onClick={remove}
+                onClick={
+                  remove
+                }
                 disabled={
                   deleting ||
                   !deletionPin.trim()
                 }
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white disabled:opacity-40"
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {deleting && (
                   <Loader2
-                    size={13}
+                    size={
+                      13
+                    }
                     className="animate-spin"
                   />
                 )}
 
-                Delete
+                {deleting
+                  ? "Deleting..."
+                  : "Delete permanently"}
               </button>
             </div>
           </div>
@@ -697,11 +909,15 @@ export default function PrayerWorkspace() {
   );
 }
 
+/*
+ * STAT CARD
+ */
 function PrayerStat({
   label,
   value,
 }: {
   label: string;
+
   value: number;
 }) {
   return (
@@ -709,11 +925,15 @@ function PrayerStat({
       <p className="text-lg font-extrabold text-white sm:text-xl">
         {new Intl.NumberFormat(
           "en"
-        ).format(value)}
+        ).format(
+          value
+        )}
       </p>
 
       <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.1em] text-slate-600 sm:text-[10px]">
-        {label}
+        {
+          label
+        }
       </p>
     </div>
   );

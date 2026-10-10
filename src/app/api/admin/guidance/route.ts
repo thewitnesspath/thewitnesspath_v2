@@ -28,6 +28,9 @@ function canAccess(
   );
 }
 
+/*
+ * LOAD SAFE HAVEN DATA
+ */
 export async function GET() {
   const session =
     await getAdminSession();
@@ -54,14 +57,12 @@ export async function GET() {
   ] = await Promise.all([
     supabaseAdmin
       .from("Questions")
-      .select(
-        `
-          id,
-          category,
-          question,
-          created_at
-        `
-      )
+      .select(`
+        id,
+        category,
+        question,
+        created_at
+      `)
       .order(
         "created_at",
         {
@@ -71,18 +72,15 @@ export async function GET() {
 
     supabaseAdmin
       .from("Answers")
-      .select(
-        `
-          id,
-          category,
-          question,
-          answer,
-          author,
-          views,
-          created_at,
-          edit_code
-        `
-      )
+      .select(`
+        id,
+        category,
+        question,
+        answer,
+        author,
+        views,
+        created_at
+      `)
       .order(
         "created_at",
         {
@@ -111,6 +109,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+
         message:
           "Safe Haven data could not be loaded.",
       },
@@ -120,12 +119,19 @@ export async function GET() {
     );
   }
 
+  const questions =
+    questionsResult.data ??
+    [];
+
   const answers =
-    answersResult.data ?? [];
+    answersResult.data ??
+    [];
 
   /*
-   * Keep the same unresolved-question
-   * logic as the legacy application.
+   * A submitted question remains
+   * unanswered until at least one
+   * published Answer contains the
+   * same question text.
    */
   const answeredTexts =
     new Set(
@@ -142,11 +148,9 @@ export async function GET() {
         .filter(Boolean)
     );
 
-  const unanswered: GuidanceQuestion[] =
-    (
-      questionsResult.data ??
-      []
-    )
+  const unanswered:
+    GuidanceQuestion[] =
+    questions
       .filter(
         (item) =>
           !answeredTexts.has(
@@ -160,16 +164,19 @@ export async function GET() {
       )
       .map(
         (item) => ({
-          id: String(
-            item.id
-          ),
+          id:
+            String(
+              item.id
+            ),
 
           category:
-            item.category?.trim() ||
+            item.category
+              ?.trim() ||
             "General Guidance",
 
           question:
-            item.question?.trim() ||
+            item.question
+              ?.trim() ||
             "",
 
           createdAt:
@@ -179,8 +186,8 @@ export async function GET() {
       );
 
   /*
-   * Group published answers into
-   * question → perspectives.
+   * GROUP PUBLISHED ANSWERS BY
+   * QUESTION.
    */
   const grouped =
     new Map<
@@ -192,7 +199,8 @@ export async function GET() {
     const answer of answers
   ) {
     const question =
-      answer.question?.trim() ||
+      answer.question
+        ?.trim() ||
       "";
 
     if (!question) {
@@ -200,55 +208,53 @@ export async function GET() {
     }
 
     const key =
-      question.toLowerCase();
+      question
+        .toLowerCase();
 
     const perspective:
       GuidancePerspective = {
-      id: String(
-        answer.id
-      ),
+      id:
+        String(
+          answer.id
+        ),
 
       category:
-        answer.category?.trim() ||
+        answer.category
+          ?.trim() ||
         "General Guidance",
 
       question,
 
       answer:
-        answer.answer?.trim() ||
+        answer.answer
+          ?.trim() ||
         "",
 
       author:
-        answer.author?.trim() ||
+        answer.author
+          ?.trim() ||
         "The Witness Team",
 
       views:
-        answer.views ?? 0,
+        answer.views ??
+        0,
 
       createdAt:
         answer.created_at ??
         null,
-
-      /*
-       * Preserve legacy behavior:
-       * Main Admin can see edit codes.
-       * Counselor does not receive them.
-       */
-      editCode:
-        session.role ===
-        "main"
-          ? answer.edit_code ??
-            null
-          : undefined,
     };
 
     const existing =
-      grouped.get(key);
+      grouped.get(
+        key
+      );
 
     if (existing) {
-      existing.perspectives.push(
-        perspective
-      );
+      existing
+        .perspectives
+        .push(
+          perspective
+        );
     } else {
       grouped.set(
         key,
@@ -266,6 +272,10 @@ export async function GET() {
     }
   }
 
+  /*
+   * OLDEST PERSPECTIVE FIRST
+   * WITHIN EACH QUESTION.
+   */
   const groups =
     Array.from(
       grouped.values()
@@ -274,28 +284,32 @@ export async function GET() {
         ...group,
 
         perspectives:
-          group.perspectives.sort(
-            (a, b) => {
-              const first =
-                a.createdAt
-                  ? new Date(
-                      a.createdAt
-                    ).getTime()
-                  : 0;
-
-              const second =
-                b.createdAt
-                  ? new Date(
-                      b.createdAt
-                    ).getTime()
-                  : 0;
-
-              return (
-                first -
+          group.perspectives
+            .sort(
+              (
+                first,
                 second
-              );
-            }
-          ),
+              ) => {
+                const firstTime =
+                  first.createdAt
+                    ? new Date(
+                        first.createdAt
+                      ).getTime()
+                    : 0;
+
+                const secondTime =
+                  second.createdAt
+                    ? new Date(
+                        second.createdAt
+                      ).getTime()
+                    : 0;
+
+                return (
+                  firstTime -
+                  secondTime
+                );
+              }
+            ),
       })
     );
 
@@ -311,11 +325,19 @@ export async function GET() {
         unanswered:
           unanswered.length,
 
+        /*
+         * Number of published
+         * perspectives.
+         */
         published:
           answers.length,
 
+        /*
+         * Total question
+         * submissions.
+         */
         questions:
-          groups.length,
+          questions.length,
       },
     },
     {
@@ -328,7 +350,8 @@ export async function GET() {
 }
 
 /*
- * CREATE ANSWER / ALTERNATIVE PERSPECTIVE
+ * CREATE ANSWER /
+ * ALTERNATIVE PERSPECTIVE
  */
 export async function POST(
   request: Request
@@ -387,6 +410,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
+
           message:
             "Question and answer are required.",
         },
@@ -419,7 +443,7 @@ export async function POST(
         },
       ])
       .select(
-        "id, edit_code"
+        "id"
       )
       .single();
 
@@ -432,6 +456,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
+
           message:
             "The guidance answer could not be published.",
         },
@@ -445,19 +470,22 @@ export async function POST(
       success: true,
 
       id:
-        String(data.id),
-
-      editCode:
-        session.role ===
-        "main"
-          ? data.edit_code ??
-            null
-          : undefined,
+        String(
+          data.id
+        ),
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Guidance publishing error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
+
         message:
           "Something went wrong while publishing the answer.",
       },

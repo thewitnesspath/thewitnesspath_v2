@@ -6,7 +6,6 @@ import {
   Heart,
   Loader2,
   LockKeyhole,
-  MessageCircle,
   RefreshCw,
   Search,
   Trash2,
@@ -33,11 +32,14 @@ type Filter =
 type QueueResult = {
   success: boolean;
 
-  items: ModerationItem[];
+  items:
+    ModerationItem[];
 
   counts: {
     total: number;
+
     testimony: number;
+
     blog: number;
   };
 };
@@ -45,7 +47,9 @@ type QueueResult = {
 function kindLabel(
   kind: ModerationKind
 ) {
-  switch (kind) {
+  switch (
+    kind
+  ) {
     case "testimony-comment":
       return "Testimony comment";
 
@@ -72,18 +76,26 @@ export default function ModerationWorkspace() {
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(
+      true
+    );
 
   const [
     query,
     setQuery,
-  ] = useState("");
+  ] =
+    useState(
+      ""
+    );
 
   const [
     filter,
     setFilter,
   ] =
-    useState<Filter>("all");
+    useState<Filter>(
+      "all"
+    );
 
   const [
     approvingKey,
@@ -112,81 +124,144 @@ export default function ModerationWorkspace() {
   const [
     deletionPin,
     setDeletionPin,
-  ] = useState("");
+  ] =
+    useState(
+      ""
+    );
 
   const [
     deleting,
     setDeleting,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const [
     message,
     setMessage,
-  ] = useState("");
+  ] =
+    useState(
+      ""
+    );
 
+  const [
+    loadError,
+    setLoadError,
+  ] =
+    useState(
+      false
+    );
+
+  /*
+   * =================================
+   * LOAD
+   * =================================
+   */
   const load =
-    useCallback(async () => {
-      setLoading(true);
-      setMessage("");
+    useCallback(
+      async () => {
+        setLoading(
+          true
+        );
 
-      try {
-        const response =
-          await fetch(
-            "/api/admin/moderation",
-            {
-              cache:
-                "no-store",
-            }
+        setMessage(
+          ""
+        );
+
+        setLoadError(
+          false
+        );
+
+        try {
+          const response =
+            await fetch(
+              "/api/admin/moderation",
+              {
+                cache:
+                  "no-store",
+              }
+            );
+
+          const result =
+            await response.json();
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result.message ||
+                "The moderation queue could not be loaded."
+            );
+          }
+
+          setData(
+            result
+          );
+        } catch (
+          error
+        ) {
+          setLoadError(
+            true
           );
 
-        const result =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error();
+          setMessage(
+            error instanceof
+              Error &&
+              error.message
+              ? error.message
+              : "The moderation queue could not be loaded."
+          );
+        } finally {
+          setLoading(
+            false
+          );
         }
-
-        setData(result);
-      } catch {
-        setMessage(
-          "The moderation queue could not be loaded."
-        );
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+      },
+      []
+    );
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [
+    load,
+  ]);
 
+  /*
+   * =================================
+   * FILTER
+   * =================================
+   */
   const filtered =
     useMemo(() => {
       let items =
-        data?.items ?? [];
+        data?.items ??
+        [];
 
       if (
         filter ===
         "testimony"
       ) {
-        items = items.filter(
-          (item) =>
-            item.kind.startsWith(
-              "testimony"
-            )
-        );
+        items =
+          items.filter(
+            (item) =>
+              item.kind.startsWith(
+                "testimony"
+              )
+          );
       }
 
       if (
         filter ===
         "blog"
       ) {
-        items = items.filter(
-          (item) =>
-            item.kind.startsWith(
-              "blog"
-            )
-        );
+        items =
+          items.filter(
+            (item) =>
+              item.kind.startsWith(
+                "blog"
+              )
+          );
       }
 
       const search =
@@ -194,12 +269,16 @@ export default function ModerationWorkspace() {
           .trim()
           .toLowerCase();
 
-      if (!search) {
+      if (
+        !search
+      ) {
         return items;
       }
 
       return items.filter(
-        (item) =>
+        (
+          item
+        ) =>
           [
             item.author,
             item.content,
@@ -210,7 +289,9 @@ export default function ModerationWorkspace() {
           ]
             .join(" ")
             .toLowerCase()
-            .includes(search)
+            .includes(
+              search
+            )
       );
     }, [
       data,
@@ -218,15 +299,26 @@ export default function ModerationWorkspace() {
       query,
     ]);
 
+  /*
+   * =================================
+   * APPROVE
+   * =================================
+   */
   const approve =
     async (
-      item: ModerationItem
+      item:
+        ModerationItem
     ) => {
       const key =
         `${item.kind}-${item.id}`;
 
-      setApprovingKey(key);
-      setMessage("");
+      setApprovingKey(
+        key
+      );
+
+      setMessage(
+        ""
+      );
 
       try {
         const response =
@@ -241,20 +333,31 @@ export default function ModerationWorkspace() {
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
-            result.message
+            result.message ||
+              "This item could not be approved."
           );
         }
 
         setMessage(
-          "Content approved and published."
+          result.alreadyApproved
+            ? "This content had already been approved."
+            : "Content approved and published."
         );
 
         await load();
-      } catch {
+      } catch (
+        error
+      ) {
         setMessage(
-          "This item could not be approved."
+          error instanceof
+            Error &&
+              error.message
+            ? error.message
+            : "This item could not be approved."
         );
       } finally {
         setApprovingKey(
@@ -263,6 +366,11 @@ export default function ModerationWorkspace() {
       }
     };
 
+  /*
+   * =================================
+   * DELETE
+   * =================================
+   */
   const remove =
     async () => {
       if (
@@ -272,7 +380,13 @@ export default function ModerationWorkspace() {
         return;
       }
 
-      setDeleting(true);
+      setDeleting(
+        true
+      );
+
+      setMessage(
+        ""
+      );
 
       try {
         const response =
@@ -288,20 +402,22 @@ export default function ModerationWorkspace() {
               },
 
               body:
-                JSON.stringify(
-                  {
-                    deletionPin,
-                  }
-                ),
+                JSON.stringify({
+                  deletionPin:
+                    deletionPin.trim(),
+                }),
             }
           );
 
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
-            result.message
+            result.message ||
+              "Unable to delete this item."
           );
         }
 
@@ -309,25 +425,55 @@ export default function ModerationWorkspace() {
           null
         );
 
-        setDeletionPin("");
+        setDeletionPin(
+          ""
+        );
 
         setMessage(
           "Content deleted."
         );
 
         await load();
-      } catch {
+      } catch (
+        error
+      ) {
         setMessage(
-          "Incorrect deletion password or the item could not be deleted."
+          error instanceof
+            Error &&
+              error.message
+            ? error.message
+            : "Unable to delete this item."
         );
       } finally {
-        setDeleting(false);
+        setDeleting(
+          false
+        );
       }
+    };
+
+  const closeDelete =
+    () => {
+      if (
+        deleting
+      ) {
+        return;
+      }
+
+      setDeleteTarget(
+        null
+      );
+
+      setDeletionPin(
+        ""
+      );
     };
 
   return (
     <div>
-      {/* HEADER */}
+      {/* =================================
+          HEADER
+      ================================= */}
+
       <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
@@ -347,30 +493,49 @@ export default function ModerationWorkspace() {
 
         <button
           type="button"
-          onClick={load}
-          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
+          onClick={
+            load
+          }
+          disabled={
+            loading
+          }
+          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RefreshCw
-            size={13}
+            size={
+              13
+            }
+            className={
+              loading
+                ? "animate-spin"
+                : ""
+            }
           />
 
           Refresh
         </button>
       </div>
 
-      {/* SUMMARY */}
+      {/* =================================
+          SUMMARY
+      ================================= */}
+
       <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
         <QueueStat
           label="All"
           value={
             data?.counts
-              .total ?? 0
+              .total ??
+            0
           }
           active={
-            filter === "all"
+            filter ===
+            "all"
           }
           onClick={() =>
-            setFilter("all")
+            setFilter(
+              "all"
+            )
           }
         />
 
@@ -378,7 +543,8 @@ export default function ModerationWorkspace() {
           label="Testimony"
           value={
             data?.counts
-              .testimony ?? 0
+              .testimony ??
+            0
           }
           active={
             filter ===
@@ -395,51 +561,98 @@ export default function ModerationWorkspace() {
           label="Blog"
           value={
             data?.counts
-              .blog ?? 0
+              .blog ??
+            0
           }
           active={
-            filter === "blog"
+            filter ===
+            "blog"
           }
           onClick={() =>
-            setFilter("blog")
+            setFilter(
+              "blog"
+            )
           }
         />
       </div>
 
-      {/* SEARCH */}
+      {/* =================================
+          SEARCH
+      ================================= */}
+
       <div className="relative mt-4">
         <Search
-          size={15}
+          size={
+            15
+          }
           className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600"
         />
 
         <input
-          value={query}
-          onChange={(event) =>
+          value={
+            query
+          }
+          onChange={(
+            event
+          ) =>
             setQuery(
-              event.target.value
+              event.target
+                .value
             )
           }
           placeholder="Search author, content or parent post..."
-          className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
+          className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
         />
       </div>
 
+      {/* =================================
+          MESSAGE
+      ================================= */}
+
       {message && (
-        <div className="mt-4 rounded-xl border border-white/10 bg-secondary px-4 py-3 text-xs text-slate-300">
-          {message}
+        <div
+          className={`mt-4 rounded-xl border px-4 py-3 text-xs ${
+            loadError
+              ? "border-red-500/20 bg-red-500/5 text-red-300"
+              : "border-white/10 bg-secondary text-slate-300"
+          }`}
+        >
+          {
+            message
+          }
+
+          {loadError && (
+            <button
+              type="button"
+              onClick={
+                load
+              }
+              className="ml-3 font-bold text-accent hover:underline"
+            >
+              Try again
+            </button>
+          )}
         </div>
       )}
 
-      {/* QUEUE */}
+      {/* =================================
+          QUEUE
+      ================================= */}
+
       {loading ? (
         <div className="mt-5 space-y-3">
           {Array.from({
-            length: 4,
+            length:
+              4,
           }).map(
-            (_, index) => (
+            (
+              _,
+              index
+            ) => (
               <div
-                key={index}
+                key={
+                  index
+                }
                 className="h-36 animate-pulse rounded-2xl border border-white/10 bg-secondary"
               />
             )
@@ -450,19 +663,30 @@ export default function ModerationWorkspace() {
         <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-secondary py-14 text-center">
           <div className="mx-auto flex size-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
             <Check
-              size={17}
+              size={
+                17
+              }
             />
           </div>
 
           <p className="mt-4 text-xs font-bold text-slate-400">
-            Moderation queue is
-            clear.
+            {query
+              ? "No moderation items match your search."
+              : filter ===
+                  "testimony"
+                ? "No testimony comments or replies are awaiting review."
+                : filter ===
+                    "blog"
+                  ? "No blog comments or replies are awaiting review."
+                  : "Moderation queue is clear."}
           </p>
         </div>
       ) : (
         <div className="mt-5 space-y-3">
           {filtered.map(
-            (item) => {
+            (
+              item
+            ) => {
               const key =
                 `${item.kind}-${item.id}`;
 
@@ -476,7 +700,9 @@ export default function ModerationWorkspace() {
 
               return (
                 <article
-                  key={key}
+                  key={
+                    key
+                  }
                   className="rounded-2xl border border-white/10 bg-secondary p-4 transition hover:border-white/15 sm:p-5"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -505,11 +731,14 @@ export default function ModerationWorkspace() {
                       </div>
 
                       <p className="mt-3 text-xs font-extrabold text-white">
-                        {item.author}
+                        {
+                          item.author
+                        }
                       </p>
 
                       <p className="mt-1 text-[10px] text-slate-600">
                         On:{" "}
+
                         <span className="text-slate-400">
                           {
                             item.parentLabel
@@ -519,14 +748,20 @@ export default function ModerationWorkspace() {
                     </div>
                   </div>
 
+                  {/* COMMENT CONTENT
+                      Keep this as plain
+                      text intentionally. */}
+
                   <div
-                    className={`mt-4 whitespace-pre-line text-sm leading-7 text-slate-300 ${
+                    className={`mt-4 whitespace-pre-line break-words text-sm leading-7 text-slate-300 ${
                       expanded
                         ? ""
                         : "line-clamp-3"
                     }`}
                   >
-                    {item.content}
+                    {
+                      item.content
+                    }
                   </div>
 
                   {item.content.length >
@@ -540,14 +775,16 @@ export default function ModerationWorkspace() {
                             : key
                         )
                       }
-                      className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-accent"
+                      className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 transition hover:text-accent"
                     >
                       {expanded
                         ? "Show less"
                         : "Read full"}
 
                       <ChevronDown
-                        size={11}
+                        size={
+                          11
+                        }
                         className={
                           expanded
                             ? "rotate-180"
@@ -557,18 +794,21 @@ export default function ModerationWorkspace() {
                     </button>
                   )}
 
+                  {/* ACTIONS */}
+
                   <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
                     <button
                       type="button"
                       disabled={
-                        approving
+                        approving ||
+                        deleting
                       }
                       onClick={() =>
                         approve(
                           item
                         )
                       }
-                      className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary transition hover:brightness-105 disabled:opacity-50"
+                      className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {approving ? (
                         <Loader2
@@ -585,11 +825,16 @@ export default function ModerationWorkspace() {
                         />
                       )}
 
-                      Approve
+                      {approving
+                        ? "Approving..."
+                        : "Approve"}
                     </button>
 
                     <button
                       type="button"
+                      disabled={
+                        approving
+                      }
                       onClick={() => {
                         setDeleteTarget(
                           item
@@ -599,10 +844,12 @@ export default function ModerationWorkspace() {
                           ""
                         );
                       }}
-                      className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10"
+                      className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10 disabled:opacity-40"
                     >
                       <Trash2
-                        size={13}
+                        size={
+                          13
+                        }
                       />
 
                       Delete
@@ -615,31 +862,50 @@ export default function ModerationWorkspace() {
         </div>
       )}
 
-      {/* DELETE MODAL */}
+      {/* =================================
+          DELETE MODAL
+      ================================= */}
+
       {deleteTarget && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="moderation-delete-title"
+        >
           <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
                 <LockKeyhole
-                  size={16}
+                  size={
+                    16
+                  }
                 />
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
-                  )
+                onClick={
+                  closeDelete
                 }
-                className="flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-white/5 hover:text-white"
+                disabled={
+                  deleting
+                }
+                aria-label="Close delete confirmation"
+                className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
               >
-                <X size={15} />
+                <X
+                  size={
+                    15
+                  }
+                />
               </button>
             </div>
 
-            <h2 className="mt-5 text-lg font-extrabold text-white">
+            <h2
+              id="moderation-delete-title"
+              className="mt-5 text-lg font-extrabold text-white"
+            >
               Delete content?
             </h2>
 
@@ -652,51 +918,79 @@ export default function ModerationWorkspace() {
               .
             </p>
 
+            <p className="mt-3 text-[10px] leading-5 text-slate-600">
+              Enter the Witness Path
+              deletion password to
+              continue.
+            </p>
+
             <input
               type="password"
               value={
                 deletionPin
               }
-              onChange={(event) =>
+              onChange={(
+                event
+              ) =>
                 setDeletionPin(
                   event.target
                     .value
                 )
               }
+              onKeyDown={(
+                event
+              ) => {
+                if (
+                  event.key ===
+                    "Enter" &&
+                  deletionPin.trim() &&
+                  !deleting
+                ) {
+                  remove();
+                }
+              }}
+              autoComplete="current-password"
               placeholder="Deletion password"
-              className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-red-400/50"
+              className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-red-400/50 focus:ring-4 focus:ring-red-500/10"
             />
 
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
-                  )
+                onClick={
+                  closeDelete
                 }
-                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
+                disabled={
+                  deleting
+                }
+                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 transition hover:text-white disabled:opacity-40"
               >
                 Cancel
               </button>
 
               <button
                 type="button"
-                onClick={remove}
+                onClick={
+                  remove
+                }
                 disabled={
                   deleting ||
                   !deletionPin.trim()
                 }
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white disabled:opacity-40"
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {deleting && (
                   <Loader2
-                    size={13}
+                    size={
+                      13
+                    }
                     className="animate-spin"
                   />
                 )}
 
-                Delete
+                {deleting
+                  ? "Deleting..."
+                  : "Delete permanently"}
               </button>
             </div>
           </div>
@@ -706,21 +1000,38 @@ export default function ModerationWorkspace() {
   );
 }
 
+/*
+ * =================================
+ * SUMMARY FILTER CARD
+ * =================================
+ */
 function QueueStat({
   label,
   value,
   active,
   onClick,
 }: {
-  label: string;
-  value: number;
-  active: boolean;
-  onClick: () => void;
+  label:
+    string;
+
+  value:
+    number;
+
+  active:
+    boolean;
+
+  onClick:
+    () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={
+        onClick
+      }
+      aria-pressed={
+        active
+      }
       className={`rounded-2xl border p-3 text-left transition sm:p-4 ${
         active
           ? "border-accent/40 bg-accent/10"
@@ -734,11 +1045,17 @@ function QueueStat({
             : "text-white"
         }`}
       >
-        {value}
+        {new Intl.NumberFormat(
+          "en"
+        ).format(
+          value
+        )}
       </p>
 
       <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.1em] text-slate-600 sm:text-[10px]">
-        {label}
+        {
+          label
+        }
       </p>
     </button>
   );

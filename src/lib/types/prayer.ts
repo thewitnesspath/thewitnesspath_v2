@@ -9,5 +9,7 @@ export type PrayerRequest = {
 
   approved: boolean;
 
-  createdAt?: string | null;
+  createdAt?:
+    | string
+    | null;
 };

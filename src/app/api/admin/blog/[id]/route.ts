@@ -20,7 +20,7 @@ type RouteContext = {
   }>;
 };
 
-function canAccess(
+function canEdit(
   role?: string
 ) {
   return (
@@ -41,7 +41,7 @@ export async function PATCH(
 
   if (
     !session ||
-    !canAccess(
+    !canEdit(
       session.role
     )
   ) {
@@ -64,6 +64,8 @@ export async function PATCH(
     return NextResponse.json(
       {
         success: false,
+        message:
+          "Invalid article.",
       },
       {
         status: 400,
@@ -99,12 +101,6 @@ export async function PATCH(
         ? body.content.trim()
         : "";
 
-    const editCode =
-      typeof body.editCode ===
-      "string"
-        ? body.editCode.trim()
-        : "";
-
     const titleError =
       validateTitle(
         title
@@ -123,15 +119,12 @@ export async function PATCH(
       );
     }
 
-    if (
-      !content ||
-      !editCode
-    ) {
+    if (!content) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "Article content and edit code are required.",
+            "Article content is required.",
         },
         {
           status: 400,
@@ -139,54 +132,58 @@ export async function PATCH(
       );
     }
 
-    /*
-     * Keep the existing Witness
-     * edit-code verification.
-     */
     const {
       data,
       error,
-    } =
-      await supabaseAdmin.rpc(
-        "secure_verify_and_edit_content",
-        {
-          target_table:
-            "BlogPosts",
+    } = await supabaseAdmin
+      .from("BlogPosts")
+      .update({
+        title,
 
-          target_id:
-            Number(id),
+        category:
+          category ||
+          "Teaching",
 
-          input_code:
-            editCode,
+        author:
+          author ||
+          "The Witness Team",
 
-          new_title:
-            title,
+        content,
+      })
+      .eq(
+        "id",
+        Number(id)
+      )
+      .select("id")
+      .maybeSingle();
 
-          new_category:
-            category ||
-            "Teaching",
-
-          new_author:
-            author ||
-            "The Witness Team",
-
-          new_content:
-            content,
-        }
+    if (error) {
+      console.error(
+        "Unable to update blog post:",
+        error.message
       );
 
-    if (
-      error ||
-      data !== true
-    ) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "Incorrect edit code.",
+            "The article could not be updated.",
         },
         {
-          status: 403,
+          status: 500,
+        }
+      );
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Article not found.",
+        },
+        {
+          status: 404,
         }
       );
     }
@@ -194,7 +191,14 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Blog editing error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
@@ -210,6 +214,9 @@ export async function PATCH(
 
 /*
  * DELETE ARTICLE
+ *
+ * Permanent deletion is restricted
+ * to the main administrator.
  */
 export async function DELETE(
   request: Request,
@@ -220,13 +227,14 @@ export async function DELETE(
 
   if (
     !session ||
-    !canAccess(
-      session.role
-    )
+    session.role !==
+      "main"
   ) {
     return NextResponse.json(
       {
         success: false,
+        message:
+          "Only the main administrator can delete articles.",
       },
       {
         status: 403,
@@ -243,6 +251,8 @@ export async function DELETE(
     return NextResponse.json(
       {
         success: false,
+        message:
+          "Invalid article.",
       },
       {
         status: 400,
@@ -310,7 +320,14 @@ export async function DELETE(
     return NextResponse.json({
       success: true,
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Blog deletion error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,

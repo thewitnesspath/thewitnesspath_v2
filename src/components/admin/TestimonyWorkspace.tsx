@@ -9,6 +9,7 @@ import {
   MessageCircle,
   RefreshCw,
   Search,
+  Send,
   Trash2,
   X,
 } from "lucide-react";
@@ -61,6 +62,10 @@ type TestimonyItem = {
     | string
     | null;
 
+  whatsapp_notified_at?:
+    | string
+    | null;
+
   Comments?: Array<{
     id: number;
   }>;
@@ -73,9 +78,50 @@ type Result = {
 
   counts: {
     pending: number;
+
     published: number;
   };
 };
+
+function formatDate(
+  value: string
+) {
+  try {
+    return new Intl.DateTimeFormat(
+      "en",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    ).format(
+      new Date(value)
+    );
+  } catch {
+    return "";
+  }
+}
+
+function formatDateTime(
+  value: string
+) {
+  try {
+    return new Intl.DateTimeFormat(
+      "en",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }
+    ).format(
+      new Date(value)
+    );
+  } catch {
+    return "";
+  }
+}
 
 export default function TestimonyWorkspace() {
   const [
@@ -143,9 +189,13 @@ export default function TestimonyWorkspace() {
     setMessage,
   ] = useState("");
 
+  /*
+   * LOAD TESTIMONIES
+   */
   const load =
     useCallback(async () => {
       setLoading(true);
+
       setMessage("");
 
       try {
@@ -161,7 +211,9 @@ export default function TestimonyWorkspace() {
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
             result.message
           );
@@ -181,6 +233,9 @@ export default function TestimonyWorkspace() {
     load();
   }, [load]);
 
+  /*
+   * SEARCH
+   */
   const filtered =
     useMemo(() => {
       const search =
@@ -217,11 +272,15 @@ export default function TestimonyWorkspace() {
       query,
     ]);
 
+  /*
+   * APPROVE TESTIMONY
+   */
   const approve =
     async (
       id: number
     ) => {
       setApprovingId(id);
+
       setMessage("");
 
       try {
@@ -237,7 +296,9 @@ export default function TestimonyWorkspace() {
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
             result.message
           );
@@ -259,6 +320,9 @@ export default function TestimonyWorkspace() {
       }
     };
 
+  /*
+   * DELETE TESTIMONY
+   */
   const remove =
     async () => {
       if (
@@ -269,6 +333,7 @@ export default function TestimonyWorkspace() {
       }
 
       setDeleting(true);
+
       setMessage("");
 
       try {
@@ -296,7 +361,9 @@ export default function TestimonyWorkspace() {
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
             result.message
           );
@@ -326,7 +393,10 @@ export default function TestimonyWorkspace() {
 
   return (
     <div>
-      {/* HEADER */}
+      {/* ===================================
+          HEADER
+      =================================== */}
+
       <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
@@ -347,17 +417,26 @@ export default function TestimonyWorkspace() {
         <button
           type="button"
           onClick={load}
-          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
+          disabled={loading}
+          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent disabled:opacity-50"
         >
           <RefreshCw
             size={13}
+            className={
+              loading
+                ? "animate-spin"
+                : ""
+            }
           />
 
           Refresh
         </button>
       </div>
 
-      {/* TABS */}
+      {/* ===================================
+          TABS
+      =================================== */}
+
       <div className="mt-6 flex gap-2">
         <button
           type="button"
@@ -374,6 +453,7 @@ export default function TestimonyWorkspace() {
           }`}
         >
           Pending{" "}
+
           <span className="ml-1 opacity-70">
             {
               data?.counts
@@ -398,6 +478,7 @@ export default function TestimonyWorkspace() {
           }`}
         >
           Published{" "}
+
           <span className="ml-1 opacity-70">
             {
               data?.counts
@@ -408,7 +489,10 @@ export default function TestimonyWorkspace() {
         </button>
       </div>
 
-      {/* SEARCH */}
+      {/* ===================================
+          SEARCH
+      =================================== */}
+
       <div className="relative mt-4">
         <Search
           size={15}
@@ -417,7 +501,9 @@ export default function TestimonyWorkspace() {
 
         <input
           value={query}
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             setQuery(
               event.target
                 .value
@@ -428,19 +514,29 @@ export default function TestimonyWorkspace() {
         />
       </div>
 
+      {/* ===================================
+          MESSAGE
+      =================================== */}
+
       {message && (
         <div className="mt-4 rounded-xl border border-white/10 bg-secondary px-4 py-3 text-xs text-slate-300">
           {message}
         </div>
       )}
 
-      {/* CONTENT */}
+      {/* ===================================
+          CONTENT
+      =================================== */}
+
       {loading ? (
         <div className="mt-5 space-y-3">
           {Array.from({
             length: 3,
           }).map(
-            (_, index) => (
+            (
+              _,
+              index
+            ) => (
               <div
                 key={index}
                 className="h-40 animate-pulse rounded-2xl border border-white/10 bg-secondary"
@@ -476,7 +572,10 @@ export default function TestimonyWorkspace() {
                   className="overflow-hidden rounded-2xl border border-white/10 bg-secondary transition hover:border-white/15"
                 >
                   <div className="p-4 sm:p-5">
-                    {/* META */}
+                    {/* ===========================
+                        META
+                    =========================== */}
+
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -490,6 +589,32 @@ export default function TestimonyWorkspace() {
                               ? "Published"
                               : "Awaiting review"}
                           </span>
+
+                          {/* WHATSAPP BROADCAST STATUS */}
+                          {item.is_approved && (
+                            <span
+                              title={
+                                item.whatsapp_notified_at
+                                  ? `Broadcast processed ${formatDateTime(
+                                      item.whatsapp_notified_at
+                                    )}`
+                                  : "No WhatsApp broadcast has been recorded."
+                              }
+                              className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.1em] ${
+                                item.whatsapp_notified_at
+                                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                  : "border-white/10 bg-primary text-slate-500"
+                              }`}
+                            >
+                              <Send
+                                size={9}
+                              />
+
+                              {item.whatsapp_notified_at
+                                ? "WhatsApp processed"
+                                : "WhatsApp not processed"}
+                            </span>
+                          )}
                         </div>
 
                         <h2 className="mt-3 text-sm font-extrabold leading-6 text-white sm:text-base">
@@ -506,9 +631,7 @@ export default function TestimonyWorkspace() {
 
                           <span className="inline-flex items-center gap-1">
                             <Eye
-                              size={
-                                11
-                              }
+                              size={11}
                             />
 
                             {item.views ??
@@ -517,9 +640,7 @@ export default function TestimonyWorkspace() {
 
                           <span className="inline-flex items-center gap-1">
                             <MessageCircle
-                              size={
-                                11
-                              }
+                              size={11}
                             />
 
                             {item
@@ -530,26 +651,34 @@ export default function TestimonyWorkspace() {
 
                           {item.created_at && (
                             <span>
-                              {new Intl.DateTimeFormat(
-                                "en",
-                                {
-                                  day: "numeric",
-                                  month:
-                                    "short",
-                                  year: "numeric",
-                                }
-                              ).format(
-                                new Date(
-                                  item.created_at
-                                )
+                              {formatDate(
+                                item.created_at
                               )}
                             </span>
                           )}
                         </div>
+
+                        {/* WHATSAPP TIMESTAMP */}
+                        {item.is_approved &&
+                          item.whatsapp_notified_at && (
+                            <p className="mt-2 inline-flex items-center gap-1.5 text-[9px] font-semibold text-emerald-400/70">
+                              <Send
+                                size={9}
+                              />
+
+                              Broadcast processed{" "}
+                              {formatDateTime(
+                                item.whatsapp_notified_at
+                              )}
+                            </p>
+                          )}
                       </div>
                     </div>
 
-                    {/* CONTENT */}
+                    {/* ===========================
+                        CONTENT
+                    =========================== */}
+
                     <div
                       className={`mt-4 overflow-hidden font-serif text-sm leading-7 text-slate-300 ${
                         expanded
@@ -585,9 +714,7 @@ export default function TestimonyWorkspace() {
                           : "Read full submission"}
 
                         <ChevronDown
-                          size={
-                            12
-                          }
+                          size={12}
                           className={
                             expanded
                               ? "rotate-180"
@@ -597,7 +724,10 @@ export default function TestimonyWorkspace() {
                       </button>
                     )}
 
-                    {/* ACTIONS */}
+                    {/* ===========================
+                        ACTIONS
+                    =========================== */}
+
                     <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
                       {status ===
                         "pending" && (
@@ -612,7 +742,7 @@ export default function TestimonyWorkspace() {
                               item.id
                             )
                           }
-                          className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary transition hover:brightness-105 disabled:opacity-50"
+                          className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {approvingId ===
                           item.id ? (
@@ -630,8 +760,10 @@ export default function TestimonyWorkspace() {
                             />
                           )}
 
-                          Approve &
-                          publish
+                          {approvingId ===
+                          item.id
+                            ? "Publishing..."
+                            : "Approve & publish"}
                         </button>
                       )}
 
@@ -665,32 +797,36 @@ export default function TestimonyWorkspace() {
         </div>
       )}
 
-      {/* DELETE MODAL */}
+      {/* ===================================
+          DELETE MODAL
+      =================================== */}
+
       {deleteTarget && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
           <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
                 <LockKeyhole
-                  size={
-                    16
-                  }
+                  size={16}
                 />
               </div>
 
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
                   setDeleteTarget(
                     null
-                  )
-                }
-                className="flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-white/5 hover:text-white"
+                  );
+
+                  setDeletionPin(
+                    ""
+                  );
+                }}
+                className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white"
+                aria-label="Close delete confirmation"
               >
                 <X
-                  size={
-                    15
-                  }
+                  size={15}
                 />
               </button>
             </div>
@@ -700,8 +836,8 @@ export default function TestimonyWorkspace() {
             </h2>
 
             <p className="mt-2 text-xs leading-6 text-slate-400">
-              This permanently removes
-              “
+              This permanently
+              removes “
               {deleteTarget.Title ||
                 "Untitled testimony"}
               ”. Enter the existing
@@ -722,6 +858,19 @@ export default function TestimonyWorkspace() {
                     .value
                 )
               }
+              onKeyDown={(
+                event
+              ) => {
+                if (
+                  event.key ===
+                    "Enter" &&
+                  deletionPin.trim() &&
+                  !deleting
+                ) {
+                  remove();
+                }
+              }}
+              autoComplete="current-password"
               placeholder="Deletion password"
               className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-red-400/50"
             />
@@ -729,12 +878,19 @@ export default function TestimonyWorkspace() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
                   setDeleteTarget(
                     null
-                  )
+                  );
+
+                  setDeletionPin(
+                    ""
+                  );
+                }}
+                disabled={
+                  deleting
                 }
-                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
+                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 transition hover:text-white disabled:opacity-40"
               >
                 Cancel
               </button>
@@ -746,18 +902,18 @@ export default function TestimonyWorkspace() {
                   deleting ||
                   !deletionPin.trim()
                 }
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white disabled:opacity-40"
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {deleting && (
                   <Loader2
-                    size={
-                      13
-                    }
+                    size={13}
                     className="animate-spin"
                   />
                 )}
 
-                Delete permanently
+                {deleting
+                  ? "Deleting..."
+                  : "Delete permanently"}
               </button>
             </div>
           </div>

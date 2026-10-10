@@ -8,6 +8,7 @@ import {
   wordOfTheWeek,
   type WordOfWeek,
 } from "@/lib/content/index";
+import WhatsAppSubscribe from "@/components/whatsapp/WhatsAppSubscribe";
 
 import { supabase } from "@/lib/supabase/client";
 import {
@@ -737,104 +738,101 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ===================================
-          PRAYER
-      =================================== */}
+        {/* ===================================
+            PRAYER
+        =================================== */}
 
-      <section className="px-4 pb-6 sm:px-6">
-        <div className="relative mx-auto min-h-[330px] max-w-[1360px] overflow-hidden rounded-[22px]">
-          <Image
-            src="/images/hero/hero-3.jpg"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover"
-          />
+        <section className="px-4 pb-6 sm:px-6">
+          <div className="relative mx-auto min-h-[330px] max-w-[1360px] overflow-hidden rounded-[22px]">
+            <Image
+              src="/images/hero/hero-3.jpg"
+              alt=""
+              fill
+              sizes="100vw"
+              className="object-cover"
+            />
 
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,22,46,0.96)_0%,rgba(7,22,46,0.88)_48%,rgba(7,22,46,0.68)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,22,46,0.96)_0%,rgba(7,22,46,0.88)_48%,rgba(7,22,46,0.68)_100%)]" />
 
-          <div className="relative z-10 grid min-h-[330px] items-center gap-8 px-6 py-10 text-white sm:px-10 lg:grid-cols-[1fr_0.85fr] lg:px-12">
-            <div className="max-w-xl">
-              <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-[#F59E0B]">
-                Prayer &
-                Support
-              </p>
-
-              <h2 className="mt-3 font-serif text-4xl tracking-[-0.045em] sm:text-5xl">
-                You&apos;re
-                Not Alone.
-              </h2>
-
-              <p className="mt-4 max-w-lg text-sm leading-7 text-white/65">
-                No matter what
-                you&apos;re
-                going through,
-                we believe in
-                the power of
-                prayer. Share a
-                request or
-                stand with
-                someone else.
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Link
-                href="/prayer"
-                className="group rounded-[16px] border border-white/15 bg-[#06111F]/45 p-5 backdrop-blur-md transition hover:border-[#F59E0B]/60"
-              >
-                <span className="text-xl text-[#F59E0B]">
-                  ◫
-                </span>
-
-                <h3 className="mt-5 font-serif text-xl">
-                  Submit a
-                  Prayer
-                  Request
-                </h3>
-
-                <p className="mt-2 text-[11px] leading-5 text-white/55">
-                  Let our
-                  community
-                  stand with
-                  you.
+            <div className="relative z-10 grid min-h-[330px] items-center gap-8 px-6 py-10 text-white sm:px-10 lg:grid-cols-[1fr_0.85fr] lg:px-12">
+              <div className="max-w-xl">
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-[#F59E0B]">
+                  Prayer & Support
                 </p>
 
-                <span className="mt-5 inline-flex text-[10px] font-bold text-[#F59E0B]">
-                  Send a
-                  Request →
-                </span>
-              </Link>
+                <h2 className="mt-3 font-serif text-4xl tracking-[-0.045em] sm:text-5xl">
+                  You&apos;re Not Alone.
+                </h2>
 
-              <Link
-                href="/prayer"
-                className="group rounded-[16px] border border-white/15 bg-[#06111F]/45 p-5 backdrop-blur-md transition hover:border-[#F59E0B]/60"
-              >
-                <span className="text-xl text-[#F59E0B]">
-                  ♡
-                </span>
-
-                <h3 className="mt-5 font-serif text-xl">
-                  Pray for
-                  Others
-                </h3>
-
-                <p className="mt-2 text-[11px] leading-5 text-white/55">
-                  Lift up and
-                  encourage
-                  someone
-                  today.
+                <p className="mt-4 max-w-lg text-sm leading-7 text-white/65">
+                  No matter what
+                  you&apos;re going
+                  through, we believe in
+                  the power of prayer.
+                  Share a request or
+                  stand with someone
+                  else.
                 </p>
+              </div>
 
-                <span className="mt-5 inline-flex text-[10px] font-bold text-[#F59E0B]">
-                  View
-                  Requests →
-                </span>
-              </Link>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link
+                  href="/prayer"
+                  className="group rounded-[16px] border border-white/15 bg-[#06111F]/45 p-5 backdrop-blur-md transition hover:border-[#F59E0B]/60"
+                >
+                  <span className="text-xl text-[#F59E0B]">
+                    ◫
+                  </span>
+
+                  <h3 className="mt-5 font-serif text-xl">
+                    Submit a Prayer
+                    Request
+                  </h3>
+
+                  <p className="mt-2 text-[11px] leading-5 text-white/55">
+                    Let our community
+                    stand with you.
+                  </p>
+
+                  <span className="mt-5 inline-flex text-[10px] font-bold text-[#F59E0B]">
+                    Send a Request →
+                  </span>
+                </Link>
+
+                <Link
+                  href="/prayer"
+                  className="group rounded-[16px] border border-white/15 bg-[#06111F]/45 p-5 backdrop-blur-md transition hover:border-[#F59E0B]/60"
+                >
+                  <span className="text-xl text-[#F59E0B]">
+                    ♡
+                  </span>
+
+                  <h3 className="mt-5 font-serif text-xl">
+                    Pray for Others
+                  </h3>
+
+                  <p className="mt-2 text-[11px] leading-5 text-white/55">
+                    Lift up and
+                    encourage someone
+                    today.
+                  </p>
+
+                  <span className="mt-5 inline-flex text-[10px] font-bold text-[#F59E0B]">
+                    View Requests →
+                  </span>
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        {/* ===================================
+            WHATSAPP TESTIMONY UPDATES
+        =================================== */}
+
+        <section className="mx-auto w-full max-w-[1380px] px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+          <WhatsAppSubscribe />
+        </section>
+      </main>
   );
 }

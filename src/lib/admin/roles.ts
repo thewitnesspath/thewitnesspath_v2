@@ -15,11 +15,21 @@ export type AdminSection =
   | "moderation"
   | "watchmen";
 
+/*
+ * Convert the role returned by
+ * verify_admin_pin into one of the
+ * roles recognised by the app.
+ *
+ * IMPORTANT:
+ * Unknown values must NEVER fall
+ * back to Main Admin.
+ */
 export function normalizeAdminRole(
   value: unknown
 ): AdminRole | null {
   if (
-    typeof value !== "string"
+    typeof value !==
+    "string"
   ) {
     return null;
   }
@@ -29,11 +39,15 @@ export function normalizeAdminRole(
       .trim()
       .toLowerCase();
 
-  if (!role) {
-    return null;
+  if (
+    role === "main"
+  ) {
+    return "main";
   }
 
-  if (role === "blogger") {
+  if (
+    role === "blogger"
+  ) {
     return "blogger";
   }
 
@@ -44,19 +58,30 @@ export function normalizeAdminRole(
   }
 
   /*
-   * Watchmen do not come through
+   * Watchmen are intentionally
+   * excluded here.
+   *
+   * They authenticate using
+   * verify_watchmen_pin rather than
    * verify_admin_pin.
-   * They use verify_watchmen_pin.
    */
-
-  return "main";
+  return null;
 }
 
+/*
+ * UI-level section visibility.
+ *
+ * Every sensitive API route must
+ * still perform its own server-side
+ * authorization.
+ */
 export function canAccessAdminSection(
   role: AdminRole,
   section: AdminSection
 ) {
-  if (role === "main") {
+  if (
+    role === "main"
+  ) {
     return true;
   }
 
@@ -64,7 +89,8 @@ export function canAccessAdminSection(
     role === "watchmen"
   ) {
     return (
-      section === "watchmen"
+      section ===
+      "watchmen"
     );
   }
 
@@ -75,7 +101,9 @@ export function canAccessAdminSection(
       "overview",
       "blog",
       "word",
-    ].includes(section);
+    ].includes(
+      section
+    );
   }
 
   if (
@@ -84,7 +112,9 @@ export function canAccessAdminSection(
     return [
       "overview",
       "guidance",
-    ].includes(section);
+    ].includes(
+      section
+    );
   }
 
   return false;
@@ -93,23 +123,19 @@ export function canAccessAdminSection(
 export function getAdminRoleLabel(
   role: AdminRole
 ) {
-  if (
-    role === "blogger"
+  switch (
+    role
   ) {
-    return "Blogger";
-  }
+    case "main":
+      return "Main Admin";
 
-  if (
-    role === "counselor"
-  ) {
-    return "Counselor";
-  }
+    case "blogger":
+      return "Blogger";
 
-  if (
-    role === "watchmen"
-  ) {
-    return "Watchmen";
-  }
+    case "counselor":
+      return "Counselor";
 
-  return "Main Admin";
+    case "watchmen":
+      return "Watchmen";
+  }
 }

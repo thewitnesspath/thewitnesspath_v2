@@ -13,15 +13,24 @@ import {
 export const runtime =
   "nodejs";
 
-export async function GET(
-  request: Request
-) {
+async function authorize() {
   const session =
     await getAdminSession();
 
+  return (
+    session?.role ===
+    "main"
+  );
+}
+
+/*
+ * LOAD PRAYER REQUESTS
+ */
+export async function GET(
+  request: Request
+) {
   if (
-    !session ||
-    session.role !== "main"
+    !(await authorize())
   ) {
     return NextResponse.json(
       {
@@ -51,8 +60,11 @@ export async function GET(
     requestsResult,
     pendingCountResult,
     publishedCountResult,
-    allApprovedResult,
+    approvedPrayerCountsResult,
   ] = await Promise.all([
+    /*
+     * CURRENT TAB
+     */
     supabaseAdmin
       .from("PrayerRequests")
       .select(`
@@ -74,6 +86,9 @@ export async function GET(
         }
       ),
 
+    /*
+     * PENDING COUNT
+     */
     supabaseAdmin
       .from("PrayerRequests")
       .select("*", {
@@ -85,6 +100,9 @@ export async function GET(
         false
       ),
 
+    /*
+     * PUBLISHED COUNT
+     */
     supabaseAdmin
       .from("PrayerRequests")
       .select("*", {
@@ -96,6 +114,9 @@ export async function GET(
         true
       ),
 
+    /*
+     * TOTAL COMMUNITY PRAYERS
+     */
     supabaseAdmin
       .from("PrayerRequests")
       .select(
@@ -107,18 +128,42 @@ export async function GET(
       ),
   ]);
 
+  /*
+   * HANDLE ALL DATABASE ERRORS,
+   * NOT ONLY THE LIST QUERY.
+   */
   if (
-    requestsResult.error
+    requestsResult.error ||
+    pendingCountResult.error ||
+    publishedCountResult.error ||
+    approvedPrayerCountsResult.error
   ) {
     console.error(
-      "Unable to load prayer requests:",
-      requestsResult.error
-        .message
+      "Unable to load prayer admin data:",
+      {
+        requests:
+          requestsResult.error
+            ?.message,
+
+        pendingCount:
+          pendingCountResult.error
+            ?.message,
+
+        publishedCount:
+          publishedCountResult.error
+            ?.message,
+
+        prayerCounts:
+          approvedPrayerCountsResult
+            .error
+            ?.message,
+      }
     );
 
     return NextResponse.json(
       {
         success: false,
+
         message:
           "Prayer requests could not be loaded.",
       },
@@ -130,7 +175,8 @@ export async function GET(
 
   const totalPrayers =
     (
-      allApprovedResult.data ??
+      approvedPrayerCountsResult
+        .data ??
       []
     ).reduce(
       (
@@ -151,16 +197,19 @@ export async function GET(
       []
     ).map(
       (item) => ({
-        id: String(
-          item.id
-        ),
+        id:
+          String(
+            item.id
+          ),
 
         category:
-          item.category?.trim() ||
+          item.category
+            ?.trim() ||
           "General Prayer",
 
         content:
-          item.content ?? "",
+          item.content ??
+          "",
 
         prayerCount:
           item.prayer_count ??
@@ -184,11 +233,13 @@ export async function GET(
 
       counts: {
         pending:
-          pendingCountResult.count ??
+          pendingCountResult
+            .count ??
           0,
 
         published:
-          publishedCountResult.count ??
+          publishedCountResult
+            .count ??
           0,
 
         prayers:

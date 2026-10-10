@@ -24,7 +24,9 @@ async function authorize() {
 }
 
 /*
+ * =================================
  * LOAD VISION & MISSION
+ * =================================
  */
 export async function GET() {
   if (
@@ -33,6 +35,8 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+        message:
+          "Access denied.",
       },
       {
         status: 403,
@@ -47,14 +51,12 @@ export async function GET() {
     .from(
       "VisionMissionContent"
     )
-    .select(
-      `
-        id,
-        vision,
-        mission,
-        updated_at
-      `
-    )
+    .select(`
+      id,
+      vision,
+      mission,
+      updated_at
+    `)
     .eq(
       "id",
       1
@@ -70,6 +72,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+
         message:
           "Vision & Mission content could not be loaded.",
       },
@@ -85,10 +88,12 @@ export async function GET() {
 
       content: {
         vision:
-          data?.vision ?? "",
+          data?.vision ??
+          "",
 
         mission:
-          data?.mission ?? "",
+          data?.mission ??
+          "",
 
         updatedAt:
           data?.updated_at ??
@@ -98,14 +103,19 @@ export async function GET() {
     {
       headers: {
         "Cache-Control":
-          "no-store",
+          "private, no-store, max-age=0",
       },
     }
   );
 }
 
 /*
+ * =================================
  * UPDATE VISION & MISSION
+ *
+ * MAIN ADMIN ONLY
+ * SINGLE RECORD: ID 1
+ * =================================
  */
 export async function PUT(
   request: Request
@@ -116,6 +126,9 @@ export async function PUT(
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Access denied.",
       },
       {
         status: 403,
@@ -139,6 +152,26 @@ export async function PUT(
         ? body.mission.trim()
         : "";
 
+    /*
+     * Used for optimistic
+     * concurrency protection.
+     *
+     * undefined means an older
+     * client that is not using
+     * this protection.
+     */
+    const expectedUpdatedAt:
+      | string
+      | null
+      | undefined =
+      typeof body.expectedUpdatedAt ===
+      "string"
+        ? body.expectedUpdatedAt
+        : body.expectedUpdatedAt ===
+            null
+          ? null
+          : undefined;
+
     if (
       !vision ||
       !mission
@@ -156,6 +189,80 @@ export async function PUT(
       );
     }
 
+    /*
+     * Load the current record before
+     * saving so one stale browser
+     * tab cannot overwrite a newer
+     * update without warning.
+     */
+    const {
+      data: current,
+      error:
+        currentError,
+    } = await supabaseAdmin
+      .from(
+        "VisionMissionContent"
+      )
+      .select(`
+        id,
+        updated_at
+      `)
+      .eq(
+        "id",
+        1
+      )
+      .maybeSingle();
+
+    if (
+      currentError
+    ) {
+      console.error(
+        "Unable to verify current Vision & Mission:",
+        currentError.message
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Vision & Mission could not be updated.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const currentUpdatedAt =
+      current?.updated_at ??
+      null;
+
+    if (
+      expectedUpdatedAt !==
+        undefined &&
+      expectedUpdatedAt !==
+        currentUpdatedAt
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          conflict: true,
+
+          message:
+            "Vision & Mission has changed since you opened this editor. Reload the latest version before saving.",
+        },
+        {
+          status: 409,
+        }
+      );
+    }
+
+    const now =
+      new Date()
+        .toISOString();
+
     const {
       data,
       error,
@@ -165,30 +272,31 @@ export async function PUT(
       )
       .upsert(
         {
-          id: 1,
+          id:
+            1,
 
           vision,
 
           mission,
 
           updated_at:
-            new Date()
-              .toISOString(),
+            now,
         },
         {
-          onConflict: "id",
+          onConflict:
+            "id",
         }
       )
-      .select(
-        `
-          vision,
-          mission,
-          updated_at
-        `
-      )
+      .select(`
+        vision,
+        mission,
+        updated_at
+      `)
       .single();
 
-    if (error) {
+    if (
+      error
+    ) {
       console.error(
         "Unable to update Vision & Mission:",
         error.message
@@ -212,16 +320,26 @@ export async function PUT(
 
       content: {
         vision:
-          data.vision,
+          data.vision ??
+          "",
 
         mission:
-          data.mission,
+          data.mission ??
+          "",
 
         updatedAt:
-          data.updated_at,
+          data.updated_at ??
+          now,
       },
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Vision & Mission save error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,

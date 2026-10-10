@@ -47,12 +47,39 @@ type Result = {
     WordOfWeekAdminItem[];
 
   latest:
-    WordOfWeekAdminItem | null;
+    WordOfWeekAdminItem |
+    null;
 
   counts: {
     entries: number;
   };
 };
+
+function formatDate(
+  value: string
+) {
+  try {
+    return new Intl.DateTimeFormat(
+      "en",
+      {
+        day:
+          "numeric",
+
+        month:
+          "short",
+
+        year:
+          "numeric",
+      }
+    ).format(
+      new Date(
+        value
+      )
+    );
+  } catch {
+    return "";
+  }
+}
 
 export default function WordOfWeekWorkspace({
   role,
@@ -68,12 +95,18 @@ export default function WordOfWeekWorkspace({
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(
+      true
+    );
 
   const [
     query,
     setQuery,
-  ] = useState("");
+  ] =
+    useState(
+      ""
+    );
 
   const [
     editorItem,
@@ -83,83 +116,137 @@ export default function WordOfWeekWorkspace({
       | WordOfWeekAdminItem
       | "new"
       | null
-    >(null);
+    >(
+      null
+    );
 
   const [
     deleteTarget,
     setDeleteTarget,
   ] =
-    useState<WordOfWeekAdminItem | null>(
+    useState<
+      WordOfWeekAdminItem |
+      null
+    >(
       null
     );
 
   const [
     deletionPin,
     setDeletionPin,
-  ] = useState("");
+  ] =
+    useState(
+      ""
+    );
 
   const [
     deleting,
     setDeleting,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const [
     message,
     setMessage,
-  ] = useState("");
+  ] =
+    useState(
+      ""
+    );
 
+  /*
+   * =================================
+   * LOAD
+   * =================================
+   */
   const load =
-    useCallback(async () => {
-      setLoading(true);
-      setMessage("");
-
-      try {
-        const response =
-          await fetch(
-            "/api/admin/word",
-            {
-              cache:
-                "no-store",
-            }
-          );
-
-        const result =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error();
-        }
-
-        setData(result);
-      } catch {
-        setMessage(
-          "Word of the Week could not be loaded."
+    useCallback(
+      async () => {
+        setLoading(
+          true
         );
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+
+        setMessage(
+          ""
+        );
+
+        try {
+          const response =
+            await fetch(
+              "/api/admin/word",
+              {
+                cache:
+                  "no-store",
+              }
+            );
+
+          const result =
+            await response.json();
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result.message ||
+                "Word of the Week could not be loaded."
+            );
+          }
+
+          setData(
+            result
+          );
+        } catch (
+          error
+        ) {
+          setMessage(
+            error instanceof
+              Error &&
+              error.message
+              ? error.message
+              : "Word of the Week could not be loaded."
+          );
+        } finally {
+          setLoading(
+            false
+          );
+        }
+      },
+      []
+    );
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [
+    load,
+  ]);
 
+  /*
+   * =================================
+   * SEARCH
+   * =================================
+   */
   const filtered =
     useMemo(() => {
       const items =
-        data?.items ?? [];
+        data?.items ??
+        [];
 
       const search =
         query
           .trim()
           .toLowerCase();
 
-      if (!search) {
+      if (
+        !search
+      ) {
         return items;
       }
 
       return items.filter(
-        (item) =>
+        (
+          item
+        ) =>
           [
             item.title,
             item.author,
@@ -167,13 +254,20 @@ export default function WordOfWeekWorkspace({
           ]
             .join(" ")
             .toLowerCase()
-            .includes(search)
+            .includes(
+              search
+            )
       );
     }, [
       data,
       query,
     ]);
 
+  /*
+   * =================================
+   * DELETE
+   * =================================
+   */
   const remove =
     async () => {
       if (
@@ -183,8 +277,13 @@ export default function WordOfWeekWorkspace({
         return;
       }
 
-      setDeleting(true);
-      setMessage("");
+      setDeleting(
+        true
+      );
+
+      setMessage(
+        ""
+      );
 
       try {
         const response =
@@ -200,20 +299,22 @@ export default function WordOfWeekWorkspace({
               },
 
               body:
-                JSON.stringify(
-                  {
-                    deletionPin,
-                  }
-                ),
+                JSON.stringify({
+                  deletionPin:
+                    deletionPin.trim(),
+                }),
             }
           );
 
         const result =
           await response.json();
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
-            result.message
+            result.message ||
+              "The entry could not be deleted."
           );
         }
 
@@ -230,18 +331,46 @@ export default function WordOfWeekWorkspace({
         );
 
         await load();
-      } catch {
+      } catch (
+        error
+      ) {
         setMessage(
-          "Incorrect deletion password or the entry could not be deleted."
+          error instanceof
+            Error &&
+              error.message
+            ? error.message
+            : "The Word of the Week could not be deleted."
         );
       } finally {
-        setDeleting(false);
+        setDeleting(
+          false
+        );
       }
+    };
+
+  const closeDeleteModal =
+    () => {
+      if (
+        deleting
+      ) {
+        return;
+      }
+
+      setDeleteTarget(
+        null
+      );
+
+      setDeletionPin(
+        ""
+      );
     };
 
   return (
     <div>
-      {/* HEADER */}
+      {/* =================================
+          HEADER
+      ================================= */}
+
       <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
@@ -259,14 +388,26 @@ export default function WordOfWeekWorkspace({
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={load}
-            className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
+            onClick={
+              load
+            }
+            disabled={
+              loading
+            }
+            className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
           >
             <RefreshCw
-              size={13}
+              size={
+                13
+              }
+              className={
+                loading
+                  ? "animate-spin"
+                  : ""
+              }
             />
 
             Refresh
@@ -279,10 +420,12 @@ export default function WordOfWeekWorkspace({
                 "new"
               )
             }
-            className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary"
+            className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-accent px-3.5 text-[11px] font-extrabold text-primary transition hover:brightness-105"
           >
             <Plus
-              size={13}
+              size={
+                13
+              }
             />
 
             Add word
@@ -290,18 +433,25 @@ export default function WordOfWeekWorkspace({
         </div>
       </div>
 
-      {/* STATS */}
+      {/* =================================
+          STATS
+      ================================= */}
+
       <div className="mt-6">
         <Stat
           label="Bank entries"
           value={
             data?.counts
-              .entries ?? 0
+              .entries ??
+            0
           }
         />
       </div>
 
-      {/* LATEST */}
+      {/* =================================
+          CURRENTLY DISPLAYED
+      ================================= */}
+
       {data?.latest && (
         <section className="mt-5 overflow-hidden rounded-2xl border border-accent/25 bg-accent/5">
           <div className="border-b border-accent/15 px-4 py-3 sm:px-5">
@@ -326,6 +476,16 @@ export default function WordOfWeekWorkspace({
               }
             </p>
 
+            {data.latest
+              .createdAt && (
+              <p className="mt-1 text-[9px] text-slate-600">
+                {formatDate(
+                  data.latest
+                    .createdAt
+                )}
+              </p>
+            )}
+
             <div className="mt-4 max-w-3xl font-serif text-sm leading-7 text-slate-300">
               <FormattedContent
                 content={
@@ -338,41 +498,65 @@ export default function WordOfWeekWorkspace({
         </section>
       )}
 
-      {/* SEARCH */}
+      {/* =================================
+          SEARCH
+      ================================= */}
+
       <div className="relative mt-5">
         <Search
-          size={15}
+          size={
+            15
+          }
           className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600"
         />
 
         <input
-          value={query}
-          onChange={(event) =>
+          value={
+            query
+          }
+          onChange={(
+            event
+          ) =>
             setQuery(
               event.target
                 .value
             )
           }
           placeholder="Search the word bank..."
-          className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
+          className="h-11 w-full rounded-xl border border-white/10 bg-secondary pl-10 pr-4 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-accent/40 focus:ring-4 focus:ring-accent/10"
         />
       </div>
 
+      {/* =================================
+          MESSAGE
+      ================================= */}
+
       {message && (
         <div className="mt-4 rounded-xl border border-white/10 bg-secondary px-4 py-3 text-xs text-slate-300">
-          {message}
+          {
+            message
+          }
         </div>
       )}
 
-      {/* CONTENT */}
+      {/* =================================
+          CONTENT
+      ================================= */}
+
       {loading ? (
         <div className="mt-5 space-y-3">
           {Array.from({
-            length: 3,
+            length:
+              3,
           }).map(
-            (_, index) => (
+            (
+              _,
+              index
+            ) => (
               <div
-                key={index}
+                key={
+                  index
+                }
                 className="h-32 animate-pulse rounded-2xl border border-white/10 bg-secondary"
               />
             )
@@ -382,7 +566,9 @@ export default function WordOfWeekWorkspace({
         0 ? (
         <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-secondary py-14 text-center">
           <BookMarked
-            size={20}
+            size={
+              20
+            }
             className="mx-auto text-slate-700"
           />
 
@@ -396,128 +582,132 @@ export default function WordOfWeekWorkspace({
         <div className="mt-5 space-y-3">
           {filtered.map(
             (
-              item,
-              index
-            ) => (
-              <article
-                key={
-                  item.id
-                }
-                className="rounded-2xl border border-white/10 bg-secondary p-4 transition hover:border-white/15 sm:p-5"
-              >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-accent">
-                        Word bank
-                      </span>
+              item
+            ) => {
+              const isCurrent =
+                data?.latest
+                  ?.id ===
+                item.id;
 
-                      {index ===
-                        0 && (
-                        <span className="rounded-lg border border-white/10 bg-primary px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                          Current
+              return (
+                <article
+                  key={
+                    item.id
+                  }
+                  className="rounded-2xl border border-white/10 bg-secondary p-4 transition hover:border-white/15 sm:p-5"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      {/* BADGES */}
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-accent">
+                          Word bank
                         </span>
-                      )}
 
-                      
-
-                      {role ===
-                        "main" &&
-                        item.editCode && (
-                          <span className="rounded-lg border border-white/10 bg-primary px-2 py-1 font-mono text-[9px] text-slate-500">
-                            Code:{" "}
-                            {
-                              item.editCode
-                            }
+                        {isCurrent && (
+                          <span className="rounded-lg border border-white/10 bg-primary px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                            Current
                           </span>
                         )}
-                    </div>
+                      </div>
 
-                    <h2 className="mt-3 text-sm font-extrabold leading-6 text-white sm:text-base">
-                      {
-                        item.title
-                      }
-                    </h2>
+                      {/* TITLE */}
 
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      By{" "}
-                      {
-                        item.author
-                      }
-                    </p>
-
-                    <div className="mt-3 line-clamp-3 max-w-3xl font-serif text-xs leading-6 text-slate-400">
-                      <FormattedContent
-                        content={
-                          item.content
+                      <h2 className="mt-3 text-sm font-extrabold leading-6 text-white sm:text-base">
+                        {
+                          item.title
                         }
-                      />
+                      </h2>
+
+                      {/* AUTHOR */}
+
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        By{" "}
+                        {
+                          item.author
+                        }
+                      </p>
+
+                      {/* CONTENT */}
+
+                      <div className="mt-3 line-clamp-3 max-w-3xl font-serif text-xs leading-6 text-slate-400">
+                        <FormattedContent
+                          content={
+                            item.content
+                          }
+                        />
+                      </div>
+
+                      {/* DATE */}
+
+                      {item.createdAt && (
+                        <p className="mt-3 text-[10px] text-slate-600">
+                          {formatDate(
+                            item.createdAt
+                          )}
+                        </p>
+                      )}
                     </div>
 
-                    {item.createdAt && (
-                      <p className="mt-3 text-[10px] text-slate-600">
-                        {new Intl.DateTimeFormat(
-                          "en",
-                          {
-                            day: "numeric",
-                            month:
-                              "short",
-                            year: "numeric",
-                          }
-                        ).format(
-                          new Date(
-                            item.createdAt
+                    {/* ACTIONS */}
+
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditorItem(
+                            item
                           )
-                        )}
-                      </p>
-                    )}
+                        }
+                        className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
+                      >
+                        <Edit3
+                          size={
+                            12
+                          }
+                        />
+
+                        Edit
+                      </button>
+
+                      {role ===
+                        "main" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteTarget(
+                              item
+                            );
+
+                            setDeletionPin(
+                              ""
+                            );
+                          }}
+                          className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10"
+                        >
+                          <Trash2
+                            size={
+                              12
+                            }
+                          />
+
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditorItem(
-                          item
-                        )
-                      }
-                      className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
-                    >
-                      <Edit3
-                        size={12}
-                      />
-
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeleteTarget(
-                          item
-                        );
-
-                        setDeletionPin(
-                          ""
-                        );
-                      }}
-                      className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-red-500/20 px-3 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10"
-                    >
-                      <Trash2
-                        size={12}
-                      />
-
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </article>
-            )
+                </article>
+              );
+            }
           )}
         </div>
       )}
 
-      {/* EDITOR */}
+      {/* =================================
+          EDITOR
+      ================================= */}
+
       {editorItem && (
         <WordEditorModal
           item={
@@ -547,100 +737,167 @@ export default function WordOfWeekWorkspace({
         />
       )}
 
-      {/* DELETE MODAL */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
-                <LockKeyhole
-                  size={16}
-                />
+      {/* =================================
+          DELETE MODAL
+      ================================= */}
+
+      {deleteTarget &&
+        role ===
+          "main" && (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-word-title"
+          >
+            <div className="w-full max-w-[410px] rounded-2xl border border-white/10 bg-secondary p-5 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                  <LockKeyhole
+                    size={
+                      16
+                    }
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    closeDeleteModal
+                  }
+                  disabled={
+                    deleting
+                  }
+                  aria-label="Close delete confirmation"
+                  className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
+                >
+                  <X
+                    size={
+                      15
+                    }
+                  />
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
+              <h2
+                id="delete-word-title"
+                className="mt-5 text-lg font-extrabold text-white"
+              >
+                Delete this word?
+              </h2>
+
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                “
+                {
+                  deleteTarget.title
+                }
+                ” will be permanently
+                removed from the Word
+                of the Week bank.
+              </p>
+
+              {data?.latest
+                ?.id ===
+                deleteTarget.id && (
+                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                  <p className="text-[10px] leading-5 text-amber-300">
+                    This is currently
+                    the displayed Word
+                    of the Week. After
+                    deletion, the next
+                    newest entry will
+                    become current.
+                  </p>
+                </div>
+              )}
+
+              <p className="mt-3 text-[10px] leading-5 text-slate-600">
+                Enter the Witness Path
+                deletion password to
+                continue.
+              </p>
+
+              <input
+                type="password"
+                value={
+                  deletionPin
+                }
+                onChange={(
+                  event
+                ) =>
+                  setDeletionPin(
+                    event.target
+                      .value
                   )
                 }
-                className="flex size-8 items-center justify-center rounded-lg text-slate-500 hover:bg-white/5 hover:text-white"
-              >
-                <X
-                  size={15}
-                />
-              </button>
-            </div>
+                onKeyDown={(
+                  event
+                ) => {
+                  if (
+                    event.key ===
+                      "Enter" &&
+                    deletionPin.trim() &&
+                    !deleting
+                  ) {
+                    remove();
+                  }
+                }}
+                autoComplete="current-password"
+                placeholder="Deletion password"
+                className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none transition placeholder:text-slate-600 focus:border-red-400/50 focus:ring-4 focus:ring-red-500/10"
+              />
 
-            <h2 className="mt-5 text-lg font-extrabold text-white">
-              Delete this word?
-            </h2>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={
+                    closeDeleteModal
+                  }
+                  disabled={
+                    deleting
+                  }
+                  className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 transition hover:text-white disabled:opacity-40"
+                >
+                  Cancel
+                </button>
 
-            <p className="mt-2 text-xs leading-6 text-slate-400">
-              “
-              {
-                deleteTarget.title
-              }
-              ” will be permanently
-              removed from the Word
-              of the Week bank.
-            </p>
+                <button
+                  type="button"
+                  onClick={
+                    remove
+                  }
+                  disabled={
+                    deleting ||
+                    !deletionPin.trim()
+                  }
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {deleting && (
+                    <Loader2
+                      size={
+                        13
+                      }
+                      className="animate-spin"
+                    />
+                  )}
 
-            <input
-              type="password"
-              value={
-                deletionPin
-              }
-              onChange={(event) =>
-                setDeletionPin(
-                  event.target
-                    .value
-                )
-              }
-              placeholder="Deletion password"
-              className="mt-5 h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-red-400/50"
-            />
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setDeleteTarget(
-                    null
-                  )
-                }
-                className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={remove}
-                disabled={
-                  deleting ||
-                  !deletionPin.trim()
-                }
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-red-500 px-4 text-xs font-extrabold text-white disabled:opacity-40"
-              >
-                {deleting && (
-                  <Loader2
-                    size={13}
-                    className="animate-spin"
-                  />
-                )}
-
-                Delete
-              </button>
+                  {deleting
+                    ? "Deleting..."
+                    : "Delete permanently"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
 
+/*
+ * =================================
+ * WORD EDITOR
+ * =================================
+ */
 function WordEditorModal({
   item,
   onClose,
@@ -650,165 +907,207 @@ function WordEditorModal({
     | WordOfWeekAdminItem
     | null;
 
-  onClose: () => void;
+  onClose:
+    () => void;
 
   onSaved: (
     message: string
-  ) => Promise<void> | void;
+  ) =>
+    | Promise<void>
+    | void;
 }) {
   const editing =
-    Boolean(item);
+    Boolean(
+      item
+    );
 
   const [
     title,
     setTitle,
-  ] = useState(
-    item?.title ?? ""
-  );
+  ] =
+    useState(
+      item?.title ??
+      ""
+    );
 
   const [
     author,
     setAuthor,
-  ] = useState(
-    item?.author ===
-      "The Witness Team"
-      ? ""
-      : item?.author ?? ""
-  );
+  ] =
+    useState(
+      item?.author ===
+        "The Witness Team"
+        ? ""
+        : item?.author ??
+          ""
+    );
 
   const [
     content,
     setContent,
-  ] = useState(
-    item?.content ?? ""
-  );
-
-  const [
-    editCode,
-    setEditCode,
-  ] = useState(
-    item?.editCode ?? ""
-  );
+  ] =
+    useState(
+      item?.content ??
+      ""
+    );
 
   const [
     submitting,
     setSubmitting,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const [
     error,
     setError,
-  ] = useState("");
+  ] =
+    useState(
+      ""
+    );
 
-  const submit = async (
-    event:
-      FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+  const titleError =
+    useMemo(
+      () =>
+        title.trim()
+          ? validateTitle(
+              title
+            )
+          : null,
+      [
+        title,
+      ]
+    );
 
-    const titleError =
-      validateTitle(
-        title
-      );
+  const valid =
+    Boolean(
+      title.trim() &&
+      !titleError &&
+      content.trim()
+    );
 
-    if (titleError) {
-      setError(
-        titleError
-      );
+  const submit =
+    async (
+      event:
+        FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
 
-      return;
-    }
-
-    if (!content.trim()) {
-      setError(
-        "Word of the Week content is required."
-      );
-
-      return;
-    }
-
-    if (
-      editing &&
-      !editCode.trim()
-    ) {
-      setError(
-        "Enter the unique edit code."
-      );
-
-      return;
-    }
-
-    setSubmitting(true);
-    setError("");
-
-    try {
-      const response =
-        await fetch(
-          editing
-            ? `/api/admin/word/${item?.id}`
-            : "/api/admin/word",
-          {
-            method:
-              editing
-                ? "PATCH"
-                : "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                title,
-                author,
-                content,
-
-                editCode:
-                  editing
-                    ? editCode
-                    : undefined,
-              }),
-          }
+      const validationError =
+        validateTitle(
+          title
         );
 
-      const result =
-        await response.json();
-
-      if (!response.ok) {
+      if (
+        validationError
+      ) {
         setError(
-          result.message ||
-            "Unable to save Word of the Week."
+          validationError
         );
 
         return;
       }
 
-      await onSaved(
-        editing
-          ? "Word of the Week updated."
-          : "Word of the Week added to the bank."
+      if (
+        !content.trim()
+      ) {
+        setError(
+          "Word of the Week content is required."
+        );
+
+        return;
+      }
+
+      setSubmitting(
+        true
       );
-    } catch {
+
       setError(
-        "Unable to save Word of the Week."
+        ""
       );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
+      try {
+        const response =
+          await fetch(
+            editing
+              ? `/api/admin/word/${item?.id}`
+              : "/api/admin/word",
+            {
+              method:
+                editing
+                  ? "PATCH"
+                  : "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  title:
+                    title.trim(),
+
+                  author:
+                    author.trim(),
+
+                  content:
+                    content.trim(),
+                }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok
+        ) {
+          setError(
+            result.message ||
+              "Unable to save Word of the Week."
+          );
+
+          return;
+        }
+
+        await onSaved(
+          editing
+            ? "Word of the Week updated."
+            : "Word of the Week added to the bank."
+        );
+      } catch {
+        setError(
+          "Unable to save Word of the Week."
+        );
+      } finally {
+        setSubmitting(
+          false
+        );
+      }
+    };
 
   return (
-    <div className="fixed inset-0 z-[85] overflow-y-auto bg-black/75 px-4 py-6 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[85] overflow-y-auto bg-black/75 px-4 py-6 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="word-editor-title"
+    >
       <div className="mx-auto w-full max-w-[900px] overflow-hidden rounded-2xl border border-white/10 bg-secondary shadow-2xl">
         {/* HEADER */}
+
         <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
           <div>
             <span className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-accent">
               Weekly anchor
             </span>
 
-            <h2 className="mt-2 text-lg font-extrabold text-white">
+            <h2
+              id="word-editor-title"
+              className="mt-2 text-lg font-extrabold text-white"
+            >
               {editing
                 ? "Edit Word of the Week"
                 : "Add Word of the Week"}
@@ -817,34 +1116,55 @@ function WordEditorModal({
 
           <button
             type="button"
-            onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white"
+            onClick={
+              onClose
+            }
+            disabled={
+              submitting
+            }
+            aria-label="Close Word of the Week editor"
+            className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
           >
-            <X size={15} />
+            <X
+              size={
+                15
+              }
+            />
           </button>
         </div>
 
         <form
-          onSubmit={submit}
+          onSubmit={
+            submit
+          }
           className="p-5"
         >
           <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
             {/* FORM */}
+
             <div>
+              {/* TITLE */}
+
               <label className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-300">
                 <span>
                   Title
                 </span>
 
                 <span
-                  className={`text-[10px] ${
+                  className={`text-[10px] font-bold ${
                     title.length >
                     CONTENT_LIMITS.title
                       ? "text-red-400"
-                      : "text-slate-600"
+                      : title.length >
+                          85
+                        ? "text-accent"
+                        : "text-slate-600"
                   }`}
                 >
-                  {title.length}/
+                  {
+                    title.length
+                  }
+                  /
                   {
                     CONTENT_LIMITS.title
                   }
@@ -852,19 +1172,33 @@ function WordEditorModal({
               </label>
 
               <input
-                value={title}
+                value={
+                  title
+                }
                 maxLength={
                   CONTENT_LIMITS.title
                 }
-                onChange={(event) =>
+                onChange={(
+                  event
+                ) =>
                   setTitle(
                     event.target
                       .value
                   )
                 }
                 placeholder="Word of the Week title"
-                className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
+                className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
               />
+
+              {titleError && (
+                <p className="mt-2 text-[10px] font-medium text-red-400">
+                  {
+                    titleError
+                  }
+                </p>
+              )}
+
+              {/* AUTHOR */}
 
               <div className="mt-5">
                 <label className="mb-2 block text-xs font-bold text-slate-300">
@@ -872,68 +1206,48 @@ function WordEditorModal({
                 </label>
 
                 <input
-                  value={author}
-                  onChange={(event) =>
+                  value={
+                    author
+                  }
+                  onChange={(
+                    event
+                  ) =>
                     setAuthor(
                       event.target
                         .value
                     )
                   }
                   placeholder="Optional"
-                  className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-primary px-3.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
                 />
 
-                <p className="mt-2 text-[10px] text-slate-600">
-                  Leave blank if no
-                  author should be
-                  stored.
+                <p className="mt-2 text-[10px] leading-5 text-slate-600">
+                  Leave blank to use
+                  The Witness Team.
                 </p>
               </div>
+
+              {/* CONTENT */}
 
               <div className="mt-5">
                 <RichTextEditor
                   label="Content"
-                  value={content}
+                  value={
+                    content
+                  }
                   onChange={
                     setContent
                   }
-                  rows={15}
+                  rows={
+                    15
+                  }
                   placeholder="Write the Word of the Week..."
                 />
               </div>
-
-              {editing && (
-                <div className="mt-5">
-                  <label className="mb-2 block text-xs font-bold text-slate-300">
-                    Unique edit code
-                  </label>
-
-                  <div className="relative">
-                    <LockKeyhole
-                      size={14}
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600"
-                    />
-
-                    <input
-                      type="password"
-                      value={
-                        editCode
-                      }
-                      onChange={(event) =>
-                        setEditCode(
-                          event.target
-                            .value
-                        )
-                      }
-                      placeholder="Enter edit code"
-                      className="h-11 w-full rounded-xl border border-white/10 bg-primary pl-10 pr-3.5 text-xs text-white outline-none placeholder:text-slate-600 focus:border-accent/50"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* PREVIEW */}
+
             <aside className="lg:sticky lg:top-5 lg:self-start">
               <p className="mb-2 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-600">
                 Live preview
@@ -945,18 +1259,15 @@ function WordEditorModal({
                 </span>
 
                 <h3 className="mt-3 text-lg font-extrabold leading-snug text-white">
-                  {title ||
+                  {title.trim() ||
                     "Weekly Anchor"}
                 </h3>
 
-                {author.trim() && (
-                  <p className="mt-2 text-[10px] text-slate-600">
-                    By{" "}
-                    {
-                      author
-                    }
-                  </p>
-                )}
+                <p className="mt-2 text-[10px] text-slate-600">
+                  By{" "}
+                  {author.trim() ||
+                    "The Witness Team"}
+                </p>
 
                 <div className="mt-5 max-h-[420px] overflow-y-auto font-serif text-sm leading-7 text-slate-300">
                   {content.trim() ? (
@@ -977,17 +1288,30 @@ function WordEditorModal({
             </aside>
           </div>
 
+          {/* ERROR */}
+
           {error && (
-            <p className="mt-5 text-xs font-medium text-red-400">
-              {error}
-            </p>
+            <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+              <p className="text-xs font-medium text-red-400">
+                {
+                  error
+                }
+              </p>
+            </div>
           )}
+
+          {/* ACTIONS */}
 
           <div className="mt-6 flex flex-col-reverse gap-2 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={onClose}
-              className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400"
+              onClick={
+                onClose
+              }
+              disabled={
+                submitting
+              }
+              className="min-h-10 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 transition hover:text-white disabled:opacity-40"
             >
               Cancel
             </button>
@@ -996,16 +1320,15 @@ function WordEditorModal({
               type="submit"
               disabled={
                 submitting ||
-                !title.trim() ||
-                !content.trim() ||
-                (editing &&
-                  !editCode.trim())
+                !valid
               }
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-xs font-extrabold text-primary disabled:opacity-40"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-xs font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {submitting && (
                 <Loader2
-                  size={13}
+                  size={
+                    13
+                  }
                   className="animate-spin"
                 />
               )}
@@ -1023,23 +1346,35 @@ function WordEditorModal({
   );
 }
 
+/*
+ * =================================
+ * STAT
+ * =================================
+ */
 function Stat({
   label,
   value,
 }: {
-  label: string;
-  value: number;
+  label:
+    string;
+
+  value:
+    number;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-secondary p-4">
       <p className="text-xl font-extrabold tracking-[-0.03em] text-white">
         {new Intl.NumberFormat(
           "en"
-        ).format(value)}
+        ).format(
+          value
+        )}
       </p>
 
       <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-600 sm:text-[10px]">
-        {label}
+        {
+          label
+        }
       </p>
     </div>
   );

@@ -17,7 +17,7 @@ type RouteContext = {
   }>;
 };
 
-function canAccess(
+function canEdit(
   role?: string
 ) {
   return (
@@ -38,7 +38,7 @@ export async function PATCH(
 
   if (
     !session ||
-    !canAccess(
+    !canEdit(
       session.role
     )
   ) {
@@ -55,15 +55,22 @@ export async function PATCH(
   const {
     kind,
     id,
-  } = await context.params;
+  } =
+    await context.params;
 
   if (
-    kind !== "answer" ||
-    !/^\d+$/.test(id)
+    kind !==
+      "answer" ||
+    !/^\d+$/.test(
+      id
+    )
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Invalid guidance item.",
       },
       {
         status: 400,
@@ -93,21 +100,13 @@ export async function PATCH(
         ? body.author.trim()
         : "";
 
-    const editCode =
-      typeof body.editCode ===
-      "string"
-        ? body.editCode.trim()
-        : "";
-
-    if (
-      !answer ||
-      !editCode
-    ) {
+    if (!answer) {
       return NextResponse.json(
         {
           success: false,
+
           message:
-            "Answer and edit code are required.",
+            "Answer is required.",
         },
         {
           status: 400,
@@ -116,52 +115,67 @@ export async function PATCH(
     }
 
     /*
-     * Keep the existing secure
-     * edit-code RPC.
+     * Authentication + role access
+     * now protects editing.
+     *
+     * edit_code remains a legacy DB
+     * column but is never exposed
+     * to the browser.
      */
     const {
       data,
       error,
-    } =
-      await supabaseAdmin.rpc(
-        "secure_verify_and_edit_content",
-        {
-          target_table:
-            "Answers",
+    } = await supabaseAdmin
+      .from("Answers")
+      .update({
+        category:
+          category ||
+          "General Guidance",
 
-          target_id:
-            Number(id),
+        answer,
 
-          input_code:
-            editCode,
+        author:
+          author ||
+          "The Witness Team",
+      })
+      .eq(
+        "id",
+        Number(id)
+      )
+      .select(
+        "id"
+      )
+      .maybeSingle();
 
-          new_title: "",
-
-          new_category:
-            category ||
-            "General Guidance",
-
-          new_author:
-            author ||
-            "The Witness Team",
-
-          new_content:
-            answer,
-        }
+    if (error) {
+      console.error(
+        "Unable to update guidance:",
+        error.message
       );
 
-    if (
-      error ||
-      data !== true
-    ) {
       return NextResponse.json(
         {
           success: false,
+
           message:
-            "Incorrect edit code.",
+            "The answer could not be updated.",
         },
         {
-          status: 403,
+          status: 500,
+        }
+      );
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Guidance answer not found.",
+        },
+        {
+          status: 404,
         }
       );
     }
@@ -169,10 +183,18 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Guidance update error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
+
         message:
           "The answer could not be updated.",
       },
@@ -185,6 +207,9 @@ export async function PATCH(
 
 /*
  * DELETE QUESTION OR ANSWER
+ *
+ * PERMANENT DELETION IS MAIN
+ * ADMIN ONLY.
  */
 export async function DELETE(
   request: Request,
@@ -195,13 +220,15 @@ export async function DELETE(
 
   if (
     !session ||
-    !canAccess(
-      session.role
-    )
+    session.role !==
+      "main"
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Only the main administrator can permanently delete Safe Haven content.",
       },
       {
         status: 403,
@@ -212,18 +239,26 @@ export async function DELETE(
   const {
     kind,
     id,
-  } = await context.params;
+  } =
+    await context.params;
 
   if (
     ![
       "question",
       "answer",
-    ].includes(kind) ||
-    !/^\d+$/.test(id)
+    ].includes(
+      kind
+    ) ||
+    !/^\d+$/.test(
+      id
+    )
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Invalid Safe Haven content.",
       },
       {
         status: 400,
@@ -241,10 +276,13 @@ export async function DELETE(
         ? body.deletionPin.trim()
         : "";
 
-    if (!deletionPin) {
+    if (
+      !deletionPin
+    ) {
       return NextResponse.json(
         {
           success: false,
+
           message:
             "Deletion password is required.",
         },
@@ -255,7 +293,8 @@ export async function DELETE(
     }
 
     const table =
-      kind === "question"
+      kind ===
+      "question"
         ? "Questions"
         : "Answers";
 
@@ -284,6 +323,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
+
           message:
             "Incorrect deletion password.",
         },
@@ -296,10 +336,18 @@ export async function DELETE(
     return NextResponse.json({
       success: true,
     });
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Safe Haven deletion error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
+
         message:
           "This content could not be deleted.",
       },

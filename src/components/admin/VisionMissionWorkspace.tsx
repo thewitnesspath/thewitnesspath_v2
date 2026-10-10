@@ -5,43 +5,96 @@ import {
   Eye,
   Loader2,
   RefreshCw,
+  RotateCcw,
   Save,
   Target,
+  TriangleAlert,
 } from "lucide-react";
 
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type FormEvent,
 } from "react";
 
 import RichTextEditor from "@/components/editor/RichTextEditor";
+
 import FormattedContent from "@/components/editor/FormattedContent";
+
+import type {
+  VisionMissionContent,
+} from "@/lib/types/vision-mission";
 
 type Result = {
   success: boolean;
 
-  content: {
-    vision: string;
-    mission: string;
-
-    updatedAt?:
-      | string
-      | null;
-  };
+  content:
+    VisionMissionContent;
 };
+
+function formatUpdatedAt(
+  value: string
+) {
+  try {
+    return new Intl.DateTimeFormat(
+      "en",
+      {
+        day:
+          "numeric",
+
+        month:
+          "short",
+
+        year:
+          "numeric",
+
+        hour:
+          "numeric",
+
+        minute:
+          "2-digit",
+      }
+    ).format(
+      new Date(
+        value
+      )
+    );
+  } catch {
+    return "";
+  }
+}
 
 export default function VisionMissionWorkspace() {
   const [
     vision,
     setVision,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     mission,
     setMission,
-  ] = useState("");
+  ] =
+    useState("");
+
+  /*
+   * Last successfully loaded/saved
+   * values. These let us identify
+   * unsaved changes.
+   */
+  const [
+    savedVision,
+    setSavedVision,
+  ] =
+    useState("");
+
+  const [
+    savedMission,
+    setSavedMission,
+  ] =
+    useState("");
 
   const [
     updatedAt,
@@ -49,159 +102,380 @@ export default function VisionMissionWorkspace() {
   ] =
     useState<
       string | null
-    >(null);
+    >(
+      null
+    );
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(
+      true
+    );
 
   const [
     saving,
     setSaving,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const [
     message,
     setMessage,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     error,
     setError,
-  ] = useState("");
+  ] =
+    useState("");
+
+  const [
+    conflict,
+    setConflict,
+  ] =
+    useState(
+      false
+    );
 
   const [
     preview,
     setPreview,
-  ] = useState<
-    "vision" | "mission"
-  >("vision");
+  ] =
+    useState<
+      "vision" |
+      "mission"
+    >(
+      "vision"
+    );
 
+  /*
+   * Unsaved state.
+   */
+  const dirty =
+    useMemo(
+      () =>
+        vision !==
+          savedVision ||
+        mission !==
+          savedMission,
+      [
+        vision,
+        mission,
+        savedVision,
+        savedMission,
+      ]
+    );
+
+  /*
+   * =================================
+   * LOAD
+   * =================================
+   */
   const load =
-    useCallback(async () => {
-      setLoading(true);
-      setError("");
-      setMessage("");
+    useCallback(
+      async () => {
+        setLoading(
+          true
+        );
+
+        setError(
+          ""
+        );
+
+        setMessage(
+          ""
+        );
+
+        setConflict(
+          false
+        );
+
+        try {
+          const response =
+            await fetch(
+              "/api/admin/vision",
+              {
+                cache:
+                  "no-store",
+              }
+            );
+
+          const result:
+            Result &
+            {
+              message?:
+                string;
+            } =
+            await response.json();
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result.message ||
+                "Vision & Mission content could not be loaded."
+            );
+          }
+
+          const nextVision =
+            result.content
+              .vision ??
+            "";
+
+          const nextMission =
+            result.content
+              .mission ??
+            "";
+
+          setVision(
+            nextVision
+          );
+
+          setMission(
+            nextMission
+          );
+
+          setSavedVision(
+            nextVision
+          );
+
+          setSavedMission(
+            nextMission
+          );
+
+          setUpdatedAt(
+            result.content
+              .updatedAt ??
+            null
+          );
+        } catch (
+          loadError
+        ) {
+          setError(
+            loadError instanceof
+              Error &&
+              loadError.message
+              ? loadError.message
+              : "Vision & Mission content could not be loaded."
+          );
+        } finally {
+          setLoading(
+            false
+          );
+        }
+      },
+      []
+    );
+
+  useEffect(() => {
+    load();
+  }, [
+    load,
+  ]);
+
+  /*
+   * =================================
+   * RESET UNSAVED CHANGES
+   * =================================
+   */
+  const resetChanges =
+    () => {
+      if (
+        saving
+      ) {
+        return;
+      }
+
+      setVision(
+        savedVision
+      );
+
+      setMission(
+        savedMission
+      );
+
+      setError(
+        ""
+      );
+
+      setMessage(
+        "Unsaved changes discarded."
+      );
+
+      setConflict(
+        false
+      );
+    };
+
+  /*
+   * =================================
+   * SAVE
+   * =================================
+   */
+  const submit =
+    async (
+      event:
+        FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
+
+      if (
+        !vision.trim() ||
+        !mission.trim()
+      ) {
+        setError(
+          "Both Vision and Mission are required."
+        );
+
+        return;
+      }
+
+      if (
+        !dirty
+      ) {
+        setMessage(
+          "There are no new changes to save."
+        );
+
+        return;
+      }
+
+      setSaving(
+        true
+      );
+
+      setError(
+        ""
+      );
+
+      setMessage(
+        ""
+      );
+
+      setConflict(
+        false
+      );
 
       try {
         const response =
           await fetch(
             "/api/admin/vision",
             {
-              cache:
-                "no-store",
+              method:
+                "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  vision:
+                    vision.trim(),
+
+                  mission:
+                    mission.trim(),
+
+                  /*
+                   * Protect against
+                   * stale-tab overwrites.
+                   */
+                  expectedUpdatedAt:
+                    updatedAt,
+                }),
             }
           );
 
-        const result:
-          Result =
+        const result =
           await response.json();
 
-        if (!response.ok) {
-          throw new Error();
+        if (
+          response.status ===
+          409
+        ) {
+          setConflict(
+            true
+          );
+
+          setError(
+            result.message ||
+              "Vision & Mission has changed in another session."
+          );
+
+          return;
         }
 
-        setVision(
+        if (
+          !response.ok
+        ) {
+          setError(
+            result.message ||
+              "Unable to save Vision & Mission."
+          );
+
+          return;
+        }
+
+        const nextVision =
           result.content
-            .vision
+            .vision ??
+          "";
+
+        const nextMission =
+          result.content
+            .mission ??
+          "";
+
+        setVision(
+          nextVision
         );
 
         setMission(
-          result.content
-            .mission
+          nextMission
+        );
+
+        setSavedVision(
+          nextVision
+        );
+
+        setSavedMission(
+          nextMission
         );
 
         setUpdatedAt(
           result.content
             .updatedAt ??
-            null
+          null
+        );
+
+        setMessage(
+          "Vision & Mission updated successfully."
         );
       } catch {
         setError(
-          "Vision & Mission content could not be loaded."
+          "Unable to save Vision & Mission."
         );
       } finally {
-        setLoading(false);
-      }
-    }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const submit = async (
-    event:
-      FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
-
-    if (
-      !vision.trim() ||
-      !mission.trim()
-    ) {
-      setError(
-        "Both Vision and Mission are required."
-      );
-
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const response =
-        await fetch(
-          "/api/admin/vision",
-          {
-            method: "PUT",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                vision,
-                mission,
-              }),
-          }
+        setSaving(
+          false
         );
-
-      const result =
-        await response.json();
-
-      if (!response.ok) {
-        setError(
-          result.message ||
-            "Unable to save Vision & Mission."
-        );
-
-        return;
       }
+    };
 
-      setUpdatedAt(
-        result.content
-          .updatedAt ??
-          null
-      );
-
-      setMessage(
-        "Vision & Mission updated successfully."
-      );
-    } catch {
-      setError(
-        "Unable to save Vision & Mission."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
+  /*
+   * =================================
+   * LOADING
+   * =================================
+   */
+  if (
+    loading
+  ) {
     return (
       <div>
         <div className="h-7 w-52 animate-pulse rounded-lg bg-secondary" />
@@ -217,9 +491,16 @@ export default function VisionMissionWorkspace() {
     );
   }
 
+  const noStoredContent =
+    !savedVision.trim() &&
+    !savedMission.trim();
+
   return (
     <div>
-      {/* HEADER */}
+      {/* =================================
+          HEADER
+      ================================= */}
+
       <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
@@ -237,71 +518,160 @@ export default function VisionMissionWorkspace() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent"
-        >
-          <RefreshCw
-            size={13}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          {dirty && (
+            <span className="inline-flex min-h-9 items-center rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 text-[10px] font-bold text-amber-300">
+              Unsaved changes
+            </span>
+          )}
 
-          Reload
-        </button>
+          <button
+            type="button"
+            onClick={
+              load
+            }
+            disabled={
+              saving
+            }
+            className="inline-flex min-h-9 w-fit items-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-400 transition hover:border-accent/30 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <RefreshCw
+              size={
+                13
+              }
+            />
+
+            Reload
+          </button>
+        </div>
       </div>
 
-      {/* MIGRATION NOTE */}
-      {!vision &&
-        !mission && (
-          <div className="mt-6 rounded-2xl border border-accent/20 bg-accent/5 p-4">
-            <p className="text-xs font-bold text-accent">
-              Content migration
-              required
-            </p>
+      {/* =================================
+          INITIAL CONTENT NOTE
+      ================================= */}
 
-            <p className="mt-2 max-w-3xl text-xs leading-6 text-slate-400">
-              The editable database
-              record is ready, but the
-              existing public Vision
-              and Mission wording has
-              not been copied into it
-              yet. We will transfer
-              the exact current wording
-              when we rebuild the
-              public Vision page.
-            </p>
+      {noStoredContent && (
+        <div className="mt-6 rounded-2xl border border-accent/20 bg-accent/5 p-4">
+          <p className="text-xs font-bold text-accent">
+            Vision & Mission record
+            is ready
+          </p>
+
+          <p className="mt-2 max-w-3xl text-xs leading-6 text-slate-400">
+            No Vision or Mission
+            wording is currently
+            stored in the editable
+            record. Enter the approved
+            wording below and save it
+            when ready.
+          </p>
+        </div>
+      )}
+
+      {/* =================================
+          CONFLICT
+      ================================= */}
+
+      {conflict && (
+        <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <div className="flex items-start gap-3">
+            <TriangleAlert
+              size={
+                16
+              }
+              className="mt-0.5 shrink-0 text-amber-300"
+            />
+
+            <div>
+              <p className="text-xs font-bold text-amber-300">
+                A newer version exists
+              </p>
+
+              <p className="mt-1 text-[11px] leading-5 text-slate-400">
+                Vision & Mission was
+                changed after this
+                editor was loaded.
+                Reload the latest
+                version before making
+                another update.
+              </p>
+
+              <button
+                type="button"
+                onClick={
+                  load
+                }
+                className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-xl border border-amber-500/20 px-3.5 text-[10px] font-bold text-amber-300 transition hover:bg-amber-500/10"
+              >
+                <RefreshCw
+                  size={
+                    12
+                  }
+                />
+
+                Load latest version
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* =================================
+          SUCCESS MESSAGE
+      ================================= */}
 
       {message && (
         <div className="mt-5 flex items-center gap-2 rounded-xl border border-accent/20 bg-accent/5 px-4 py-3 text-xs text-slate-300">
           <Check
-            size={13}
+            size={
+              13
+            }
             className="shrink-0 text-accent"
           />
 
-          {message}
+          {
+            message
+          }
         </div>
       )}
+
+      {/* =================================
+          ERROR
+      ================================= */}
 
       {error && (
         <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-xs text-red-300">
-          {error}
+          {
+            error
+          }
         </div>
       )}
 
+      {/* =================================
+          FORM
+      ================================= */}
+
       <form
-        onSubmit={submit}
+        onSubmit={
+          submit
+        }
         className="mt-6"
       >
         <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-          {/* EDITORS */}
+          {/* =============================
+              EDITORS
+          ============================= */}
+
           <div className="space-y-5">
+            {/* VISION */}
+
             <section className="rounded-2xl border border-white/10 bg-secondary p-4 sm:p-5">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex size-9 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
                   <Eye
-                    size={15}
+                    size={
+                      15
+                    }
                   />
                 </div>
 
@@ -320,20 +690,28 @@ export default function VisionMissionWorkspace() {
 
               <RichTextEditor
                 label="Vision content"
-                value={vision}
+                value={
+                  vision
+                }
                 onChange={
                   setVision
                 }
-                rows={10}
-                placeholder="Paste the existing Vision wording here..."
+                rows={
+                  10
+                }
+                placeholder="Write the Vision..."
               />
             </section>
+
+            {/* MISSION */}
 
             <section className="rounded-2xl border border-white/10 bg-secondary p-4 sm:p-5">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex size-9 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
                   <Target
-                    size={15}
+                    size={
+                      15
+                    }
                   />
                 </div>
 
@@ -352,17 +730,24 @@ export default function VisionMissionWorkspace() {
 
               <RichTextEditor
                 label="Mission content"
-                value={mission}
+                value={
+                  mission
+                }
                 onChange={
                   setMission
                 }
-                rows={10}
-                placeholder="Paste the existing Mission wording here..."
+                rows={
+                  10
+                }
+                placeholder="Write the Mission..."
               />
             </section>
           </div>
 
-          {/* LIVE PREVIEW */}
+          {/* =============================
+              LIVE PREVIEW
+          ============================= */}
+
           <aside className="xl:sticky xl:top-[88px] xl:self-start">
             <div className="rounded-2xl border border-white/10 bg-secondary p-4">
               <div className="flex items-center justify-between gap-3">
@@ -382,7 +767,7 @@ export default function VisionMissionWorkspace() {
                       preview ===
                       "vision"
                         ? "bg-accent text-primary"
-                        : "text-slate-500"
+                        : "text-slate-500 hover:text-white"
                     }`}
                   >
                     Vision
@@ -399,7 +784,7 @@ export default function VisionMissionWorkspace() {
                       preview ===
                       "mission"
                         ? "bg-accent text-primary"
-                        : "text-slate-500"
+                        : "text-slate-500 hover:text-white"
                     }`}
                   >
                     Mission
@@ -415,7 +800,7 @@ export default function VisionMissionWorkspace() {
                     : "Our Mission"}
                 </span>
 
-                <div className="mt-4 font-serif text-sm leading-7 text-slate-300">
+                <div className="mt-4 max-h-[520px] overflow-y-auto font-serif text-sm leading-7 text-slate-300">
                   {(preview ===
                     "vision"
                     ? vision
@@ -430,72 +815,104 @@ export default function VisionMissionWorkspace() {
                       }
                     />
                   ) : (
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs leading-6 text-slate-600">
                       No content has
-                      been migrated
-                      yet.
+                      been entered yet.
                     </p>
                   )}
                 </div>
               </div>
 
               {updatedAt && (
-                <p className="mt-3 text-[9px] text-slate-600">
-                  Last updated{" "}
-                  {new Intl.DateTimeFormat(
-                    "en",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                      hour: "numeric",
-                      minute:
-                        "2-digit",
-                    }
-                  ).format(
-                    new Date(
+                <p className="mt-3 text-[9px] leading-5 text-slate-600">
+                  Last saved{" "}
+                  {
+                    formatUpdatedAt(
                       updatedAt
                     )
-                  )}
+                  }
                 </p>
               )}
             </div>
           </aside>
         </div>
 
-        {/* SAVE BAR */}
-        <div className="sticky bottom-4 z-20 mt-6 flex flex-col gap-3 rounded-2xl border border-white/10 bg-secondary/95 p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-          <p className="px-1 text-[10px] leading-5 text-slate-500">
-            Changes affect the public
-            Vision & Mission page
-            once that page is connected
-            to this record.
-          </p>
+        {/* =================================
+            SAVE BAR
+        ================================= */}
 
-          <button
-            type="submit"
-            disabled={
-              saving ||
-              !vision.trim() ||
-              !mission.trim()
-            }
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-xs font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {saving ? (
-              <Loader2
-                size={13}
-                className="animate-spin"
-              />
-            ) : (
-              <Save
-                size={13}
-              />
+        <div className="sticky bottom-4 z-20 mt-6 flex flex-col gap-3 rounded-2xl border border-white/10 bg-secondary/95 p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <div className="px-1">
+            <p className="text-[10px] leading-5 text-slate-500">
+              Vision and Mission are
+              stored together as the
+              platform&apos;s central
+              identity record.
+            </p>
+
+            {dirty && (
+              <p className="mt-0.5 text-[9px] font-bold text-amber-300">
+                You have unsaved
+                changes.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {dirty && (
+              <button
+                type="button"
+                onClick={
+                  resetChanges
+                }
+                disabled={
+                  saving
+                }
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-xs font-bold text-slate-400 transition hover:border-white/20 hover:text-white disabled:opacity-40"
+              >
+                <RotateCcw
+                  size={
+                    13
+                  }
+                />
+
+                Discard changes
+              </button>
             )}
 
-            {saving
-              ? "Saving..."
-              : "Save changes"}
-          </button>
+            <button
+              type="submit"
+              disabled={
+                saving ||
+                !dirty ||
+                !vision.trim() ||
+                !mission.trim() ||
+                conflict
+              }
+              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-xs font-extrabold text-primary transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {saving ? (
+                <Loader2
+                  size={
+                    13
+                  }
+                  className="animate-spin"
+                />
+              ) : (
+                <Save
+                  size={
+                    13
+                  }
+                />
+              )}
+
+              {saving
+                ? "Saving..."
+                : dirty
+                  ? "Save changes"
+                  : "Saved"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

@@ -9,13 +9,17 @@ import {
 import {
   getAdminSession,
   WATCHMEN_ACCESS_COOKIE,
-  ADMIN_SESSION_MAX_AGE,
-  createAdminSessionToken,
+  WATCHMEN_ACCESS_MAX_AGE,
+  createWatchmenAccessToken,
 } from "@/lib/admin/session";
 
 export const runtime =
   "nodejs";
 
+/*
+ * MAIN ADMIN ONLY:
+ * VERIFY SECONDARY WATCHMEN PIN
+ */
 export async function POST(
   request: Request
 ) {
@@ -24,11 +28,15 @@ export async function POST(
 
   if (
     !session ||
-    session.role !== "main"
+    session.role !==
+      "main"
   ) {
     return NextResponse.json(
       {
         success: false,
+
+        message:
+          "Access denied.",
       },
       {
         status: 403,
@@ -67,13 +75,32 @@ export async function POST(
       await supabaseAdmin.rpc(
         "verify_watchmen_pin",
         {
-          input_pin: pin,
+          input_pin:
+            pin,
         }
       );
 
+    if (error) {
+      console.error(
+        "Watchmen PIN verification error:",
+        error.message
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Watchmen access could not be verified.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
     if (
-      error ||
-      !data
+      data !== true
     ) {
       return NextResponse.json(
         {
@@ -88,10 +115,14 @@ export async function POST(
       );
     }
 
+    /*
+     * Dedicated scoped token.
+     *
+     * This is NOT an admin
+     * session token.
+     */
     const token =
-      createAdminSessionToken(
-        "watchmen"
-      );
+      createWatchmenAccessToken();
 
     const response =
       NextResponse.json({
@@ -102,24 +133,34 @@ export async function POST(
       WATCHMEN_ACCESS_COOKIE,
       token,
       {
-        httpOnly: true,
+        httpOnly:
+          true,
 
-        sameSite: "lax",
+        sameSite:
+          "lax",
 
         secure:
           process.env
             .NODE_ENV ===
           "production",
 
-        path: "/",
+        path:
+          "/",
 
         maxAge:
-          ADMIN_SESSION_MAX_AGE,
+          WATCHMEN_ACCESS_MAX_AGE,
       }
     );
 
     return response;
-  } catch {
+  } catch (
+    error
+  ) {
+    console.error(
+      "Watchmen unlock error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
